@@ -1,0 +1,1878 @@
+---
+title: "STAT5003_Final_Report"
+author: 'Author:<br> zilu0423  540245006<br> szha0052 530377698<br> ywan0228 530722304<br> yfan4715 510195249<br> whan4429 510074058<br> pwan0475 540453678'
+subtitle: Group_50
+output:
+  html_document:
+    code_folding: hide
+    theme: united
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    df_print: paged
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+---
+
+<style>
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+  padding: 0 0 3px 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+tr:hover {
+  background-color: #f5f5f5;
+}
+    
+.toc .section-number {
+  display: none;
+}
+
+.summary {
+  color: #000000;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+}
+</style>
+
+# Overview of the problem
+
+<div class = "summary">
+
+The aim of this project is to construct a model for predicting bank customer credit score, categorised into high, medium, and low. Banks need to get quite accurate predictions of the credit scores because this will be directly related to the lending decision and risk management. <br>
+<br>
+Traditional methods for assessment of credit are cumbersome, time-consuming, and sometimes not enough to represent the true financial status of a client. It is quite challenging for banks to evaluate the credit risk for the customer through traditional approaches, most notably in developing regions and when their customers are young. <br>
+<br>
+Thus, the project helps to ease this process of credit assessment for banks by building predictive models based on a variety of data points, including transaction history, employment status, and recent financial behaviour. Providing an equal playing field to individuals who don't have credit history. Furthermore, proper credit scoring models may help banks offer tailor-made financial products that are more appropriate for their risk and financial position, which could increase customer satisfaction and reduce the rate of defaults.<br>
+<br>
+
+</div>
+
+
+# Dataset description
+
+<div class = "summary">
+
+The dataset is acquired from Kaggle and goes with the name "Credit Score Classification" by Rohan Paris (Paris, R, 2022). This is a credit information dataset of bank customers that aims to build a model for credit scoring. This dataset is under the Public Domain license, with the license of CC0: Public Domain.<br>
+<br>
+
+The original dataset consists of 100,000 samples with 28 different attributes. Out of the attributes, 9 are numeric, and 19 are categorical. Data pre-processing resulted in an increase in the number of numerical attributes to 22, while the number of categorical attributes was reduced to 8. The credit scores are categorized into three classes of Poor, Standard and Good.<br>
+<br>
+
+<h4> Description of major variables: </h4>
+
+Among the many attributes, the following are particularly critical in predicting credit scores:
+
+<ul>
+
+  <li>Annual_Income: Represents the economic condition of customers and is an important indicator of credit evaluation based on the ability to pay.</li>
+  <li>Num_of_Loan: These indicators reflect the number of loans of a customer and directly affect the credit score.</li>
+  <li>Credit_Utilization_Ratio: A very high ratio indicates an increased credit risk and is one of the critical parameters for deciding the credit score.</li>
+  <li>Num_of_Delayed_Payment and Delay_from_due_date: These are the key variables that indicate the repayment behavior of the customer and timings and thereby have a huge influence on the credit score.</li>
+  <li>Monthly_Inhand_Salary: Direct impact on the liquidity situation for the customer and affecting his ability to repay the loan.</li>
+  </ul>
+
+</div>
+
+
+# Initial data analysis/visualization of the data
+
+<div class = "summary">
+For IDA, we start with a brief overview of all the features in the dataset to understand what is in the content and structure. We also identify and deal with the missing values, any form of outliers, and anomalies in the data to avoid potential model bias. Then, based on these analyses, the features with high rates of missing should either be dropped or imputed to keep the overall consistency and accuracy of the data set. Finally, we will represent the distribution and the relationship of features in a dataset graphically through bar plots, PCA and t-SNE to derive the patterns in data and separability between the categories.<br>
+</div>
+
+## Data Pre-processing
+```{r}
+# load package
+suppressPackageStartupMessages({
+  library(ggplot2)      
+  library(dplyr)        
+  library(tidyverse)   
+  library(caret)      
+  library(class)       
+  library(readr)       
+  library(MLmetrics) 
+  library(rpart)        
+  library(rpart.plot)  
+  library(randomForest) 
+  library(ranger)      
+  library(tree)        
+  library(e1071)       
+  library(lattice)      
+  library(stringr)      
+  library(visdat)      
+  library(plotly)     
+  library(pheatmap)    
+  library(Rtsne)        
+  library(zoo)         
+  library(reshape2)  
+})
+
+```
+
+
+```{r}
+# load package
+df <- read.csv("train.csv", stringsAsFactors = F)
+
+# "set value for mode or random function"
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+#"data cleaning for Month"
+df$Month <- match(df$Month, month.name)
+
+# "data cleaning for Name"
+df <- df %>%
+  mutate(Name = ifelse(Name == '', NA, Name)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Name = coalesce(Name, getmode(Name[!is.na(Name)]))) %>%
+  ungroup()
+
+# "data cleaning for Age"
+df <- df %>%
+  mutate(Age = gsub("_", "", Age),
+         Age = as.numeric(Age)) %>% 
+  mutate(Age = ifelse(Age == '' | Age > 90 | Age < 0, NA, Age)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Age = coalesce(Age, getmode(Age[!is.na(Age)]))) %>%
+  ungroup()
+
+# "Labeling for Age"
+
+#"Career Budding", "Career Development", "Career Maturity", "Career Decline"
+df <- df %>%
+  mutate(Age_Level = factor(case_when(
+    Age <= 24 ~ 0,
+    Age >= 25 & Age <= 34 ~ 1,
+    Age >= 35 & Age <= 49 ~ 2,
+    Age >= 50 ~ 3
+  ), levels = 0:3)) %>% 
+  select(-Age)
+
+# "data cleaning for SSN"
+df <- df %>%
+  mutate(SSN = ifelse(SSN == '#F%$D@*&8', NA, SSN)) %>%
+  group_by(Customer_ID) %>%
+  mutate(SSN = coalesce(SSN, getmode(SSN[!is.na(SSN)]))) %>%
+  ungroup()
+
+# "data cleaning for Occupation"
+df <- df %>%
+  mutate(Occupation = ifelse(Occupation == '_______', NA, Occupation)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Occupation = coalesce(Occupation, getmode(Occupation[!is.na(Occupation)]))) %>%
+  ungroup()
+
+#"Labeling for Occupation"
+occupation_stability <- c(
+  "Lawyer" = 2, "Doctor" = 2, "Accountant" = 2, "Teacher" = 2, "Engineer" = 2,
+  "Media_Manager" = 1, "Journalist" = 1, "Manager" = 1, "Scientist" = 1, "Architect" = 1, "Developer" = 1,
+  "Entrepreneur" = 0, "Writer" = 0, "Musician" = 0, "Mechanic" = 0
+)
+df$Occupation <- occupation_stability[df$Occupation]
+df$Occupation <- factor(df$Occupation)
+invisible(levels(df$Occupation))
+
+#"data cleaning for Annual_Income"
+df <- df %>%
+  mutate(Annual_Income = gsub("_", "", Annual_Income),
+         Annual_Income = as.numeric(Annual_Income)) %>% 
+  mutate(Annual_Income = ifelse(Annual_Income == '', NA, Annual_Income)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Annual_Income = coalesce(Annual_Income, getmode(Annual_Income[!is.na(Annual_Income)]))) %>%
+  ungroup() %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+
+# By querying outlier and normal value occurrence times
+# Find the outlier limit of the Interest_Rate outlier limit. It is found that all outliers above 18w (including 18w) are outliers.
+
+count_high_Annual_Income <- df %>%
+  filter(Annual_Income >= 180000) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Annual_Income = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Annual_Income <- left_join(count, count_high_Annual_Income, by = "Customer_ID")
+
+# Will be higher than 18w(including 18w) according to Customer_ID unified
+df <- df %>%
+  mutate(Annual_Income = ifelse(Annual_Income == '' | Annual_Income >= 180000, NA, Annual_Income)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Annual_Income = coalesce(Annual_Income, getmode(Annual_Income[!is.na(Annual_Income)]))) %>%
+  ungroup()
+
+# "Data cleaning for Annual_Income"
+
+Q1.AI <- quantile(df$Annual_Income, 0.25)
+Q3.AI <- quantile(df$Annual_Income, 0.75)
+IQR.AI <- IQR(df$Annual_Income)
+
+lower.AI <- Q1.AI - 1.5 * IQR.AI
+upper.AI <- Q3.AI + 1.5 * IQR.AI
+
+df <- subset(df, Annual_Income >= lower.AI & Annual_Income <= upper.AI)
+
+# "data cleaning for Monthly_Inhand_Salary"
+# Unify null values based on Customer_ID
+df <- df %>%
+  mutate(Monthly_Inhand_Salary = ifelse(Monthly_Inhand_Salary == '', NA, Monthly_Inhand_Salary)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Monthly_Inhand_Salary = coalesce(Monthly_Inhand_Salary, getmode(Monthly_Inhand_Salary[!is.na(Monthly_Inhand_Salary)]))) %>%
+  ungroup()
+
+# "Data cleaning for Monthly_Inhand_Salary"
+
+Q1.MIS <- quantile(df$Monthly_Inhand_Salary, 0.25)
+Q3.MIS <- quantile(df$Monthly_Inhand_Salary, 0.75)
+IQR.MIS <- IQR(df$Monthly_Inhand_Salary)
+
+lower.MIS <- Q1.MIS - 1.5 * IQR.MIS
+upper.MIS <- Q3.MIS + 1.5 * IQR.MIS
+
+df <- subset(df, Monthly_Inhand_Salary >= lower.MIS & Monthly_Inhand_Salary <= upper.MIS)
+
+# "data cleaning for Num_Bank_Accounts"
+
+# By querying outlier and normal value occurrence times
+# Find outlier bounds for Num_Bank_Accounts. It is found that all outliers above 12 (including 12) and -1 are outliers.
+count_high_Num_Bank_Accounts <- df %>%
+  filter(Num_Bank_Accounts >= 12) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_Bank_Accounts = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_Bank_Accounts <- left_join(count, count_high_Num_Bank_Accounts, by = "Customer_ID")
+
+invisible(combined_df_Num_Bank_Accounts)
+
+# will be higher than 12 (including 12) and lower than 0 according to the Customer_ID unified
+df <- df %>%
+  mutate(Num_Bank_Accounts = ifelse(Num_Bank_Accounts == '' | Num_Bank_Accounts >= 12 | Num_Bank_Accounts < 0, NA, Num_Bank_Accounts)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Bank_Accounts = coalesce(Num_Bank_Accounts, getmode(Num_Bank_Accounts[!is.na(Num_Bank_Accounts)]))) %>%
+  ungroup()
+
+# "Data cleaning for Num_Bank_Accounts"
+
+Q1.NBA <- quantile(df$Num_Bank_Accounts, 0.25)
+Q3.NBA <- quantile(df$Num_Bank_Accounts, 0.75)
+IQR.NBA <- IQR(df$Num_Bank_Accounts)
+
+lower.NBA <- Q1.NBA - 1.5 * IQR.NBA
+upper.NBA <- Q3.NBA + 1.5 * IQR.NBA
+
+df <- subset(df, Num_Bank_Accounts >= lower.NBA & Num_Bank_Accounts <= upper.NBA)
+
+# "data cleaning for Num_Credit_Card"
+
+
+count_high_credit_card <- df %>%
+  filter(Num_Credit_Card >= 12) %>%
+  group_by(Customer_ID) %>%
+  summarise(Count_High_Credit_Card = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_credit_card <- left_join(count, count_high_credit_card, by = "Customer_ID")
+
+df <- df %>%
+  mutate(Num_Credit_Card = ifelse(Num_Credit_Card == '' | Num_Credit_Card >= 12, NA, Num_Credit_Card)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Credit_Card = coalesce(Num_Credit_Card, getmode(Num_Credit_Card[!is.na(Num_Credit_Card)]))) %>%
+  ungroup()
+
+# "Data cleaning for Num_Credit_Card"
+
+Q1.NCC <- quantile(df$Num_Credit_Card, 0.25)
+Q3.NCC <- quantile(df$Num_Credit_Card, 0.75)
+IQR.NCC <- IQR(df$Num_Credit_Card)
+
+lower.NCC <- Q1.NCC - 1.5 * IQR.NCC
+upper.NCC <- Q3.NCC + 1.5 * IQR.NCC
+
+df <- subset(df, Num_Credit_Card >= lower.NCC & Num_Credit_Card <= upper.NCC)
+
+# "data cleaning for Interest_Rate"
+count_high_Interest_Rate <- df %>%
+  filter(Interest_Rate >= 35) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Interest_Rate = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Interest_Rate <- left_join(count, count_high_Interest_Rate, by = "Customer_ID")
+
+
+df <- df %>%
+  mutate(Interest_Rate = ifelse(Interest_Rate == '' | Interest_Rate >= 35, NA, Interest_Rate)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Interest_Rate = coalesce(Interest_Rate, getmode(Interest_Rate[!is.na(Interest_Rate)]))) %>%
+  ungroup()
+
+# "Data cleaning for Interest_Rate"
+
+Q1.IR <- quantile(df$Interest_Rate, 0.25)
+Q3.IR <- quantile(df$Interest_Rate, 0.75)
+IQR.IR <- IQR(df$Interest_Rate)
+
+lower.IR <- Q1.IR - 1.5 * IQR.IR
+upper.IR <- Q3.IR + 1.5 * IQR.IR
+
+df <- subset(df, Interest_Rate >= lower.IR & Interest_Rate <= upper.IR)
+
+# "data cleaning for Num_of_Loan"
+
+df <- df %>%
+  mutate(Num_of_Loan = ifelse(Type_of_Loan == '', 0, 
+                              ifelse(str_detect(Type_of_Loan, ','), 
+                                     str_count(Type_of_Loan, ',') + 1,
+                                     1)))
+
+# Find the unique Type_of_Loan (9 types)
+df_loans <- df %>%
+  separate_rows(Type_of_Loan, sep = ", and |, ") %>%
+  mutate(Type_of_Loan = trimws(Type_of_Loan)) %>%
+  filter(Type_of_Loan != '')
+
+loan_type_categories <- c(
+  "Credit-Builder Loan" = "Credit Building",
+  "Home Equity Loan" = "Housing",
+  "Not Specified" = "Unspecified",
+  "Payday Loan" = "Personal Consumption",
+  "Student Loan" = "Education",
+  "Debt Consolidation Loan" = "Debt Consolidation",
+  "Personal Loan" = "Personal Consumption",
+  "Auto Loan" = "Personal Consumption",
+  "Mortgage Loan" = "Housing"
+)
+df <- df %>%
+  mutate(Credit_Building = as.integer(grepl("Credit-Builder Loan", Type_of_Loan)),
+         Housing = as.integer(grepl("Home Equity Loan|Mortgage Loan", Type_of_Loan)),
+         Unspecified = as.integer(grepl("Not Specified", Type_of_Loan)),
+         Personal_Consumption = as.integer(grepl("Payday Loan|Personal Loan|Auto Loan", Type_of_Loan)),
+         Education = as.integer(grepl("Student Loan", Type_of_Loan)),
+         Debt_Consolidation = as.integer(grepl("Debt Consolidation Loan", Type_of_Loan))) %>%
+  select(-Type_of_Loan)
+
+# "data cleaning for Delay_from_due_date"
+
+# numeric
+df <- df %>%
+  mutate(Delay_from_due_date = as.numeric(Delay_from_due_date))
+  
+# "Data cleaning for Delay_from_due_date"
+
+Q1.DDD <- quantile(df$Delay_from_due_date, 0.25)
+Q3.DDD <- quantile(df$Delay_from_due_date, 0.75)
+IQR.DDD <- IQR(df$Delay_from_due_date)
+
+lower.DDD <- Q1.DDD - 1.5 * IQR.DDD
+upper.DDD <- Q3.DDD + 1.5 * IQR.DDD
+
+df <- subset(df, Delay_from_due_date >= lower.DDD & Delay_from_due_date <= upper.DDD)
+
+# "data cleaning for Num_of_Delayed_Payment"
+
+# By querying outlier and normal value occurrence times
+# Find the outlier bounds for Num_of_Delayed_Payment's outlier bounds. It is found that outliers above 29 (including 29) and below 0 are outliers.
+
+count_high_Num_of_Delayed_Payment <- df %>%
+  filter(Num_of_Delayed_Payment >= 29) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_of_Delayed_Payment = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_of_Delayed_Payment <- left_join(count, count_high_Num_of_Delayed_Payment, by = "Customer_ID")
+
+
+# Unify values above 29(including 29) and below 0 according to Customer_ID, and delete underscores,
+df <- df %>%
+  mutate(Num_of_Delayed_Payment = gsub("_", "", Num_of_Delayed_Payment),
+         Num_of_Delayed_Payment = as.numeric(Num_of_Delayed_Payment), 
+         Num_of_Delayed_Payment = ifelse(Num_of_Delayed_Payment == '' | Num_of_Delayed_Payment >= 29 | Num_of_Delayed_Payment < 0, NA, Num_of_Delayed_Payment)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_of_Delayed_Payment = coalesce(Num_of_Delayed_Payment, getmode(Num_of_Delayed_Payment[!is.na(Num_of_Delayed_Payment)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Num_of_Delayed_Payment))
+
+# "Data cleaning for Num_of_Delayed_Payment"
+
+Q1.NDP <- quantile(df$Num_of_Delayed_Payment, 0.25)
+Q3.NDP <- quantile(df$Num_of_Delayed_Payment, 0.75)
+IQR.NDP <- IQR(df$Num_of_Delayed_Payment)
+
+lower.NDP <- Q1.NDP - 1.5 * IQR.NDP
+upper.NDP <- Q3.NDP + 1.5 * IQR.NDP
+
+df <- subset(df, Num_of_Delayed_Payment >= lower.NDP & Num_of_Delayed_Payment <= upper.NDP)
+
+# "data cleaning for Changed_Credit_Limit"
+
+# Delete the '_' after the value, then delete all empty lines
+df <- df %>%
+  mutate(Changed_Credit_Limit = gsub("_", "", Changed_Credit_Limit)) %>%
+  mutate(Changed_Credit_Limit = as.numeric(Changed_Credit_Limit)) %>% 
+  drop_na(Changed_Credit_Limit) %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+# "Data cleaning for Changed_Credit_Limit"
+
+Q1.CCL <- quantile(df$Changed_Credit_Limit, 0.25)
+Q3.CCL <- quantile(df$Changed_Credit_Limit, 0.75)
+IQR.CCL <- IQR(df$Changed_Credit_Limit)
+
+lower.CCL <- Q1.CCL - 1.5 * IQR.CCL
+upper.CCL <- Q3.CCL + 1.5 * IQR.CCL
+
+df <- subset(df, Changed_Credit_Limit >= lower.CCL & Changed_Credit_Limit <= upper.CCL)
+
+# "data cleaning for Num_Credit_Inquiries"
+
+# By querying outlier and normal value occurrence times
+# Find outlier bounds for Num_Credit_Inquiries outlier bounds. All outliers above 18 (including 18) are found to be outliers.
+
+count_high_Num_Credit_Inquiries <- df %>%
+  filter(Num_Credit_Inquiries >= 18) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_Credit_Inquiries = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_Credit_Inquiries <- left_join(count, count_high_Num_Credit_Inquiries, by = "Customer_ID")
+
+invisible(combined_df_Num_Credit_Inquiries)
+
+# But since 18 counts is too small, I locate 32 counts including (32) as outliers.
+# Will be higher than 32(including 32) based on Customer_ID unified
+df <- df %>%
+  mutate(Num_Credit_Inquiries = ifelse(Num_Credit_Inquiries == '' | Num_Credit_Inquiries >= 32, NA, Num_Credit_Inquiries)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Credit_Inquiries = coalesce(Num_Credit_Inquiries, getmode(Num_Credit_Inquiries[!is.na(Num_Credit_Inquiries)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Num_Credit_Inquiries))
+
+#| code-summary: "Data cleaning for Num_Credit_Inquiries"
+
+Q1.NCI <- quantile(df$Num_Credit_Inquiries, 0.25)
+Q3.NCI <- quantile(df$Num_Credit_Inquiries, 0.75)
+IQR.NCI <- IQR(df$Num_Credit_Inquiries)
+
+lower.NCI <- Q1.NCI - 1.5 * IQR.NCI
+upper.NCI <- Q3.NCI + 1.5 * IQR.NCI
+
+df <- subset(df, Num_Credit_Inquiries >= lower.NCI & Num_Credit_Inquiries <= upper.NCI)
+
+
+# "data cleaning for Credit_Mix"
+
+# Credit_Mix
+df <- df %>%
+  mutate(Credit_Mix = ifelse(Credit_Mix == '_', NA, Credit_Mix)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Credit_Mix = coalesce(Credit_Mix, getmode(Credit_Mix[!is.na(Credit_Mix)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Credit_Mix))
+
+# "Labeling for Credit_Mix"
+df$Credit_Mix <- factor(df$Credit_Mix, levels = c("Bad", "Standard", "Good"), labels = c(0, 1, 2), ordered = TRUE)
+invisible(levels(df$Credit_Mix))
+
+# "data cleaning for Outstanding_Debt"
+
+# Outstanding_Debt
+df$Outstanding_Debt <- gsub("_", "", df$Outstanding_Debt)
+df$Outstanding_Debt <- as.numeric(df$Outstanding_Debt)
+
+# "Data cleaning for Outstanding_Debt"
+
+Q1.OD <- quantile(df$Outstanding_Debt, 0.25)
+Q3.OD <- quantile(df$Outstanding_Debt, 0.75)
+IQR.OD <- IQR(df$Outstanding_Debt)
+
+lower.OD <- Q1.OD - 1.5 * IQR.OD
+upper.OD <- Q3.OD + 1.5 * IQR.OD
+
+df <- subset(df, Outstanding_Debt >= lower.OD & Outstanding_Debt <= upper.OD)
+
+# "Data cleaning for Credit_Utilization_Ratio"
+
+Q1.CUR <- quantile(df$Credit_Utilization_Ratio, 0.25)
+Q3.CUR <- quantile(df$Credit_Utilization_Ratio, 0.75)
+IQR.CUR <- IQR(df$Credit_Utilization_Ratio)
+
+lower.CUR <- Q1.CUR - 1.5 * IQR.CUR
+upper.CUR <- Q3.CUR + 1.5 * IQR.CUR
+
+df <- subset(df, Credit_Utilization_Ratio >= lower.CUR & Credit_Utilization_Ratio <= upper.CUR)
+
+# "data cleaning for Credit_History_Age"
+
+df <- df %>%
+  mutate(Credit_History_Age = gsub("Years and ", "", Credit_History_Age),
+         Credit_History_Age = gsub("Months", "", Credit_History_Age),
+         Credit_History_Age = gsub("Month", "", Credit_History_Age),
+         Credit_History_Age = gsub("\\[\\s+\\]", " ", trimws(Credit_History_Age)),
+         Credit_History_Age_Months = as.numeric(sub("\\s.*", "", Credit_History_Age)) * 12 +
+                                     as.numeric(gsub(".*\\s", "", Credit_History_Age))) %>%
+  select(-Credit_History_Age)
+
+fill_na <- function(x) {
+  if (all(is.na(x))) {
+    return(x)
+  }
+  
+  x[is.na(x)] <- zoo::na.locf(x, na.rm = FALSE, fromLast = FALSE)[is.na(x)]
+  return(x)
+}
+
+df <- df %>%
+  group_by(Customer_ID) %>%
+  arrange(Customer_ID, Month, .by_group = TRUE) %>%
+  mutate(Credit_History_Age_Months = fill_na(Credit_History_Age_Months)) %>%
+  ungroup() %>%
+  mutate(Credit_History_Age = paste0(floor(Credit_History_Age_Months / 12), " Years and ",
+                                     Credit_History_Age_Months %% 12, " Months")) %>%
+  select(-Credit_History_Age_Months)
+
+df <- df %>%
+  mutate(Credit_History_Age = gsub("NA", "", Credit_History_Age),
+         Credit_History_Age = gsub("Years and ", "", Credit_History_Age),
+         Credit_History_Age = gsub("Months", "", Credit_History_Age),
+         Credit_History_Age = gsub("Years", "", Credit_History_Age),
+         Credit_History_Age = gsub("\\[\\s+\\]", " ", trimws(Credit_History_Age)),
+         Credit_History_Age = as.numeric(sub("\\s.*", "", Credit_History_Age)) +
+                               as.numeric(gsub(".*\\s", "", Credit_History_Age)) / 12) %>%
+  filter(!is.na(Credit_History_Age))
+
+# "Data cleaning for Payment_of_Min_Amount"
+
+get_mode <- function(x) {
+  ux <- unique(x[!is.na(x)])
+  if (length(ux) > 0) {
+    ux[which.max(tabulate(match(x, ux)))]
+  } else {
+    NA
+  }
+}
+
+df <- df %>%
+  group_by(Customer_ID) %>%
+  mutate(Payment_of_Min_Amount = ifelse(Payment_of_Min_Amount == "NM",
+                                        get_mode(Payment_of_Min_Amount[Payment_of_Min_Amount != "NM"]),
+                                        Payment_of_Min_Amount)) %>%
+  ungroup() %>%
+  filter(!is.na(Payment_of_Min_Amount))
+
+df$Payment_of_Min_Amount <- factor(df$Payment_of_Min_Amount, levels = c("No", "Yes"), labels = c(0, 1), ordered = TRUE)
+
+# "Data cleaning for Total_EMI_per_month"
+
+Q1.EMI <- quantile(df$Total_EMI_per_month, 0.25)
+Q3.EMI <- quantile(df$Total_EMI_per_month, 0.75)
+IQR.EMI <- IQR(df$Total_EMI_per_month)
+
+lower.EMI <- Q1.EMI - 1.5 * IQR.EMI
+upper.EMI <- Q3.EMI + 1.5 * IQR.EMI
+
+df <- subset(df, Total_EMI_per_month >= lower.EMI & Total_EMI_per_month <= upper.EMI)
+
+# "Summarise Amount_invested_monthly"
+
+df <- df %>%
+  mutate(Amount_invested_monthly = as.numeric(gsub("__10000__", NA, Amount_invested_monthly))) %>%
+  filter(!is.na(Amount_invested_monthly))
+
+# "Data cleaning for Amount_invested_monthly"
+
+Q1.AIM <- quantile(df$Amount_invested_monthly, 0.25)
+Q3.AIM <- quantile(df$Amount_invested_monthly, 0.75)
+IQR.AIM <- IQR(df$Amount_invested_monthly)
+
+lower.AIM <- Q1.AIM - 1.5 * IQR.AIM
+upper.AIM <- Q3.AIM + 1.5 * IQR.AIM
+
+# drop
+df <- subset(df, Amount_invested_monthly >= lower.AIM & Amount_invested_monthly <= upper.AIM)
+
+# "Data cleaning for Payment_Behaviour"
+
+df <- df %>%
+  mutate(Payment_Behaviour = case_when(
+    Payment_Behaviour == "Low_spent_Small_value_payments" ~ 0,
+    Payment_Behaviour == "Low_spent_Medium_value_payments" ~ 1, 
+    Payment_Behaviour == "Low_spent_Large_value_payments" ~ 2,
+    Payment_Behaviour == "High_spent_Large_value_payments" ~ 3,
+    Payment_Behaviour == "High_spent_Medium_value_payments" ~ 4,
+    Payment_Behaviour == "High_spent_Small_value_payments" ~ 5,
+    Payment_Behaviour == "!@9#%8" ~ as.numeric(NA),
+    TRUE ~ as.numeric(NA)
+  ))
+
+get_rand_mode <- function(x) {
+  ux <- unique(na.omit(x))
+  if (length(ux) > 0) {
+    return(sample(ux, 1))
+  } else {
+    return(NA)
+  }
+}
+
+payment_behaviour_mode <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(Payment_Behaviour_Mode = get_rand_mode(Payment_Behaviour))
+
+df <- left_join(df, payment_behaviour_mode, by = "Customer_ID")
+df$Payment_Behaviour <- coalesce(df$Payment_Behaviour, df$Payment_Behaviour_Mode)
+
+df <- df %>% filter(!is.na(Payment_Behaviour))
+df <- df %>% 
+  select(-Payment_Behaviour_Mode)
+df$Payment_Behaviour <- as.factor(df$Payment_Behaviour)
+
+#| code-summary: "Data cleaning for Monthly_Balance"
+
+df <- df %>%
+  filter(Monthly_Balance != "__-333333333333333333333333333__") %>%
+  filter(!is.na(Monthly_Balance)) %>%
+  mutate(Monthly_Balance = as.numeric(gsub("[^0-9.-]+", "", Monthly_Balance))) %>%
+  filter(!is.na(Monthly_Balance))
+
+# "Data cleaning for Monthly_Balance"
+
+Q1.MB <- quantile(df$Monthly_Balance, 0.25)
+Q3.MB <- quantile(df$Monthly_Balance, 0.75)
+IQR.MB <- IQR(df$Monthly_Balance)
+
+lower.MB <- Q1.MB - 1.5 * IQR.MB
+upper.MB <- Q3.MB + 1.5 * IQR.MB
+
+df <- subset(df, Monthly_Balance >= lower.MB & Monthly_Balance <= upper.MB)
+
+# Labeling
+df$Credit_Score <- factor(df$Credit_Score, levels = c("Poor", "Standard", "Good"), labels = c(0, 1, 2), ordered = TRUE)
+```
+
+<div class = "summary">
+
+Following are the preprocessing tasks with the dataset to make the model run accurately and efficiently.
+
+<ul>
+
+  <li>Customer Information: ID, Customer_ID, Name, SSN. Basic information needs no processing. The fill-in uses the customer ID for null values or abnormal values. </li>
+  <li>Time Information: The text month is converted into a number. </li>
+  <li>Economic Information: For instance, Annual_Income, Monthly_Inhand_Salary, Num_Bank_Accounts, Num_Credit_Card, and Interest_Rate: handle outliers and clean the data using the IQR method.
+  <li>Loan Information: Num_of_Loan and Type_of_Loan. Derived Variables: Housing, Education, etc. Handle the missing values and outliers, reclassify the Type of Loan and obtain the numeric type.</li>
+  <li>Credit Information: Delay_from_due_date, Num_of_Delayed_Payment, Changed_Credit_Limit, Outstanding_Debt, Credit_Utilization_Ratio, Total_EMI_per_month, Monthly_Balance: formatting adjustments and removal of outliers using the IQR method.</li>
+  <li>History Information: Credit_History_Age: format change and grouped by customer ID to impute any missing values.</li>
+  <li>Other Informations (Credit_Mix, Payment_of_Min_Amount, Amount_invested_monthly, Payment_Behaviour, Credit_Score) :handle null values and outliers, convert formats and standardize appropriately.</li>
+  </ul>
+  
+</div>
+
+## Data Visualization
+
+```{r}
+# plot loan type
+loan.categories <- df %>%
+  select(Credit_Building, Housing, Unspecified, Personal_Consumption, Education, Debt_Consolidation) %>%
+  pivot_longer(cols = everything(), names_to = "Loan_Category", values_to = "Value") %>%
+  group_by(Loan_Category, Value) %>%
+  summarise(Count = n(), .groups = "drop")
+
+ggplot(data = loan.categories, aes(x = factor(Value), y = Count, fill = factor(Value))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Loan_Category, scales = "free_x") +
+  labs(title = "Loan Category Distribution",
+       x = "Value",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+        legend.position = "none")
+```
+
+<div class="summary">
+
+<h4>Bar Chart</h4>
+
+The bar chart shows the distribution of the different loan categories in the dataset. For each loan category, the distribution is based on two values: 0 (missing) and 1 (existing). It is clear to see that personal consumption loans are relatively high in the dataset and the distribution of housing loans is relatively balanced.<br>
+
+</div>
+
+```{r}
+# plot frequency of each credit score
+credit_score_counts <- table(df$Credit_Score)
+barplot(credit_score_counts,
+        main = "Frequency of Each Credit Score",
+        xlab = "Credit Score",
+        ylab = "Frequency",
+        col = "grey",
+        border = "white")
+```
+
+<div class="summary">
+
+<h4>Bar Chart</h4>
+
+The figure shows the distribution of the target feature in this dataset. From the figure, we can see that the visualization shows that there is a certain imbalance in the distribution of different credit score categories. Class 1 (Standard) appears most frequently and far exceeds class 0 (Poor) and class 2 (Good). It indicates that the credit scores of the vast majority of people are distributed in Standard, reflecting the general credit status of the group. The problem of class imbalance will bring challenges to the model building stage. It will bias classification models toward the majority class and result in poor accuracy in the classification of minor classes. So we need to consider the sensitivity of the model to unbalanced data in the model selection stage.
+
+</div>
+
+```{r}
+# plot PCA
+df6 <- subset(df,select = -c(Month,ID,Customer_ID,SSN,Name))
+
+numerical_cols <- c("Annual_Income", "Monthly_Inhand_Salary", "Num_Bank_Accounts", "Num_Credit_Card", 
+                    "Interest_Rate", "Num_of_Loan", "Delay_from_due_date", "Num_of_Delayed_Payment",
+                    "Changed_Credit_Limit", "Num_Credit_Inquiries", "Outstanding_Debt",
+                    "Credit_Utilization_Ratio", "Total_EMI_per_month", "Amount_invested_monthly",
+                     "Monthly_Balance", "Credit_Score")
+
+dataNumeric <- df6[, numerical_cols]
+dataNumeric$Credit_Score <- as.numeric(as.character(dataNumeric$Credit_Score))
+
+# Applying PCA
+pca_result <- prcomp(dataNumeric, scale. = TRUE)
+
+# Convert PCA scores to data boxes
+scores_df <- as.data.frame(pca_result$x)
+
+# Add target feature
+scores_df$Credit_Score <- dataNumeric$Credit_Score
+
+# Plot Scatter graph
+ggplot(scores_df, aes(x = PC1, y = PC2, color = as.factor(Credit_Score))) +
+  geom_point(alpha = 0.5, size = 0.00000000005) +
+  labs(title = "PCA Scatter Plot by Credit Score", x = "Principal Component 1", y = "Principal Component 2", color = "Credit Score Category") +
+  scale_color_manual(values = c("red", "blue", "green")) +
+  theme_minimal()
+```
+
+<div class="summary">
+
+<h4>PCA</h4>
+
+From the scatter plot of PCA, we can find the distribution of data categories. Scores of different categories overlap a lot in the principal component space, which may indicate that the model based on linear methods may not perform well on this data set and cannot effectively distinguish different categories. Further feature extraction or the use of complex models capable of dealing with nonlinear relationships may be required, and certain imbalances may be found from them, to deal with this we may need some data processing strategies to improve the model's ability to predict a few classes.
+
+</div>
+
+```{r, warning=FALSE, message=FALSE}
+# plot t-SNE
+df6 <- subset(df,select = -c(Month,ID,Customer_ID,SSN,Name))
+set.seed(510195249)
+
+# Define the numerical columns
+numerical_cols <- c("Annual_Income", "Monthly_Inhand_Salary", "Num_Bank_Accounts", "Num_Credit_Card",
+                    "Interest_Rate", "Num_of_Loan", "Delay_from_due_date", "Num_of_Delayed_Payment",
+                    "Changed_Credit_Limit", "Num_Credit_Inquiries", "Outstanding_Debt",
+                    "Credit_Utilization_Ratio", "Total_EMI_per_month", "Amount_invested_monthly",
+                    "Monthly_Balance", "Credit_History_Age")
+
+df_filtered <- df6 %>%
+  filter(if_all(all_of(numerical_cols), ~ !is.na(.)))
+df_numerical_scaled <- scale(df_filtered[, numerical_cols])
+
+tsne_result <- Rtsne(df_numerical_scaled, dims = 2, perplexity = 50, max_iter = 1000, pca = TRUE)$Y
+tsne_data <- as.data.frame(tsne_result)
+names(tsne_data) <- c("x", "y")
+tsne_data[["Credit_Score"]] <- df_filtered[["Credit_Score"]]
+
+tsne_plot <- ggplot(tsne_data, aes(x = x, y = y, colour = Credit_Score)) +
+    geom_point(size = 0.5) +
+    ggtitle("t-SNE Visualization (Perplexity = 50)") +
+    theme_minimal() +
+    theme(legend.position = "bottom")
+
+print(tsne_plot)
+```
+
+<div class="summary">
+
+<h4>t-SNE</h4>
+
+For an enhanced knowledge on how to distribute the data from the high-dimension feature space into various categories in a credit score, we employed t-distributed Stochastic Neighbour Embedding (t-SNE), which is a non-linear dimensionality reduction technique in such a way that pairwise similarities between data points are best preserved (Hamid & M. Sugumaran, 2019). In the project, we set the perplexity at 50, and plot the whole numerical features using t-SNE. From the plot, it can be seen that the "1"(Standard) customers spread more, taking much space to cover the centre and the right part of the plot, meaning that their features are diversified. Meanwhile, three categories overlap each other, suggesting that the differentiation between customers of different credit scores cannot be perfectly done with the current dimension of features.<br>
+
+</div>
+
+# Feature engineering
+
+```{r}
+# feature engineering
+df3 <- df
+df3 <- subset(df3,select = -c(Month,ID,Customer_ID,SSN,Name))
+df3 <- df3 %>%
+  mutate(across(where(is.factor), ~as.numeric(as.character(.)))) %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
+  mutate(across(where(is.numeric), scale))
+df3 <- df3[complete.cases(df3$Credit_History_Age), ]
+
+# Call prcomp function
+pca_result <- prcomp(df3, scale. = TRUE)
+# Output explained variances and factor loading matrix
+variance_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+#Define contribute percent of variance
+variance_contrib_percent <- (pca_result$sdev^2 / sum(pca_result$sdev^2)) * 100
+# Define cumulative contribute percent of variance
+cumulative_variance_contrib_percent <- cumsum(variance_contrib_percent)
+# Calculate the (cumulative) percentage variance contribution
+variance_contrib_percent <- (pca_result$sdev^2 / sum(pca_result$sdev^2)) * 100
+cumulative_variance_contrib_percent <- cumsum(variance_contrib_percent)
+
+# Setting determine to output names till cvcp > 85%
+selected_variables <- names(cumulative_variance_contrib_percent[cumulative_variance_contrib_percent > 85])
+
+# Filter cumulative variance contribute percent when over 85%
+df4 <- data.frame(cumulative_variance_contrib_percent, variable = names(df3))
+
+selected_variables <- df4$variable[df4$cumulative_variance_contrib_percent < 86]
+df5 <- df[selected_variables]
+credit_score_column <- df$Credit_Score
+df5_with_credit_score <- cbind(df5, Credit_Score = credit_score_column)
+df5_with_credit_score <- mutate_if(df5_with_credit_score, is.factor, as.character)
+df5_with_credit_score <- mutate_all(df5_with_credit_score, as.numeric)
+
+
+# Create a data frame with variable names and their cumulative percent contributions
+df_cumulative <- data.frame(
+  variables = names(df3),
+  cumulative_percent = cumulative_variance_contrib_percent
+)
+
+# Calculate the index where the cumulative percent is just under 86%
+max_index_under_86 <- max(which(df_cumulative$cumulative_percent < 86))
+
+# Retrieve the cumulative percent at this index to use for the horizontal line
+selected_percent = df_cumulative$cumulative_percent[max_index_under_86]
+
+# Plotting the graph
+ggplot(df_cumulative, aes(x = seq_along(variables), y = cumulative_percent)) +
+  geom_line() +  # Draw the line plot
+  geom_vline(xintercept = max_index_under_86, color = "red", linetype = "dashed") +
+  geom_hline(yintercept = selected_percent, color = "blue", linetype = "dashed") +
+  labs(title = "Cumulative Variance Contribution Percent by Number of Variables",
+       x = "Number of Variables",
+       y = "Cumulative Variance Contribution Percent") +
+  theme_minimal()
+```
+
+<div class = "summary">
+
+In Principle Component Analysis, for each principal component, its corresponding value of variance is found, showing the part of the total variance of the data represented by a given principal component. Cumulative variance contribution rates are the sums of all preceding individual contributions of the first n principal components and are usually calculated in percentage values. It is therefore an important parameter that shows whether, even after dimensionality reduction, the data set gives a good indication about the structure of the original data. (Abdi & Williams, 2010) <br>
+<br>
+Calculating the cumulative variance contribution rate involves the following steps: <br>
+
+<ul>
+
+  <li>Calculate the variance contribution of each principal component: </li>
+  <li>First, determine the eigenvalues for each principal component, which represent their contribution to explaining the total variance.</li>
+  <li>Sum the variance contributions: Add these contributions in order of largest to smallest until the cumulative sum reaches 85% of the total variance. (Abdi et al., 2013)</li>
+  </ul>
+
+<br>We can strike a balance between the needs for retention of information and simplification of the model by setting the standard at 85% cumulative variance contribution rate when selecting the principal components. This strengthens the efficiency of the analysis and ensures that the analysis results are reliable and valid.<br>
+
+</div>
+
+# Classification algorithms used
+
+## Multinomial Logistic Classification
+
+<div class = "summary">
+<h4>Algorithm Description</h4>
+Multinomial logistic regression extends binary logistic regression when the response variable has more than two categories (El-Habil, 2012). It models the log odds of each category relative to a reference category, giving probabilities for each class, based on a linear combination of input features. Hence, it is well suited for multiclass classification(Prinzie & Van Den Poel, 2008).<br>
+<br>
+<h4>Advantages:</h4>
+
+<ul>
+
+  <li>Flexibility in Application: Accommodates more than two categories in the response variable without collapsing them and is, therefore, many applications. </li>
+  <li>Interpretability: The model gives interpretable odds ratios for each predictor relative to a reference category, hence making it possible to deduce the impact of any factor (Kook et al., 2022).</li>
+  <li>No Ordinality Assumption: It is apt for nominal categorical data since there is no natural ordering that is assumed among the response categories.</li>
+  </ul>
+<h4>Disadvantages:</h4>
+  <ul>
+  <li>Independence of Irrelevant Alternatives Assumption Limitation: The assumption of the model—that the independence of the choice between any two outcomes is from other alternatives (Allison, 2024). </li>
+  <li>Complexity with Many Categories: Requires more data for reliable parameter estimation and may potentially have higher computational costs.</li>
+  <li>Sensitivity to Imbalanced Data: It may not work properly with imbalanced data, since it may not predict the probabilities of the less-occurring categories well without further adjustments.</li>
+  </ul>
+</div>
+
+```{r, warning=FALSE, message=FALSE}
+# Read and prepare the data_lo
+data_lo <- df5_with_credit_score
+data_lo <- na.omit(data_lo)  # Remove rows with NA values
+# Convert the target variable to a factor and ensure valid R variable names
+data_lo$Credit_Score <- as.factor(data_lo$Credit_Score)
+levels(data_lo$Credit_Score) <- make.names(levels(data_lo$Credit_Score), unique = TRUE)
+# Normalize the data_lo (standardize)
+preProcValues <- preProcess(data_lo[, -ncol(data_lo)], method = c("center", "scale"))
+data_lo_normalized <- predict(preProcValues, data_lo[, -ncol(data_lo)])
+data_lo_normalized$Credit_Score <- data_lo$Credit_Score
+# Set up cross-validation and model training control parameters
+train_control <- trainControl(
+  method = "cv",             # Use cross-validation
+  number = 10,               # 10-fold cross-validation
+  savePredictions = "final",
+  classProbs = TRUE,         # Calculate class probabilities
+  summaryFunction = multiClassSummary,  # Use the multi-class summary function
+  verboseIter = FALSE        # Turn off verbose iteration output
+)
+# Set random seed to ensure reproducibility
+set.seed(123)
+
+# Split the data_loset into training and testing sets, using 80% of the data_lo for training
+trainIndex <- createDataPartition(data_lo_normalized$Credit_Score, p = 0.8, list = FALSE, times = 1)
+train_data_lo <- data_lo_normalized[trainIndex, ]
+test_data_lo <- data_lo_normalized[-trainIndex, ]
+# Define the tuning grid for the multinomial logistic regression
+grid <- expand.grid(decay = c(0, 0.1, 0.01, 0.001))
+# Train a multinomial logistic regression model
+model <- train(
+  Credit_Score ~ .,
+  data = train_data_lo,
+  method = "multinom",
+  trControl = train_control,
+  tuneGrid = grid,
+  maxit = 100,  # Set the maximum number of iterations
+  trace = FALSE  # Control the nnet package output
+)
+# Make predictions using the model on the test data_lo
+predictions <- predict(model, test_data_lo)
+conf_matrix <- table(Predicted = predictions, Actual = test_data_lo$Credit_Score)
+# Custom function to calculate the F1 Score
+F1_Score_Lo <- function(cm) {
+  precision <- diag(cm) / rowSums(cm)
+  recall <- diag(cm) / colSums(cm)
+  f1 <- 2 * precision * recall / (precision + recall)
+  return(mean(f1, na.rm = TRUE))  # Return the average F1 score
+}
+
+# Calculate the F1 Score and model accuracy for the test set
+f1_score_test <- F1_Score_Lo(conf_matrix)
+accuracy_test <- sum(predictions == test_data_lo$Credit_Score) / nrow(test_data_lo)
+
+print(paste("Best Model Parameters:", toString(model$bestTune)))
+```
+
+
+<div class = "summary">
+<h4>Hyperparameter Tuning</h4>
+The hyperparameters were optimised based on 10-Fold Cross-Validation: The dataset was divided into ten subsets, and the model was trained ten times, leaving one subset in each, which was then used for testing, and the rest of the data was used for training. This method effectively tests the model's performance on unseen data, thus assuring a reliable assessment of the model's capability to generalise (Fushiki, 2009).<br>
+<br>
+
+The multinomial logistic regression model is tuned with the definition of a tuning grid, focusing on adjusting the "decay" parameter. To be more precise, the tuning grid is utilised to control the process of regularisation where the model complexity is moderated (Review of Smart Meter Data Analytics: Applications, Methodologies, and Challenges, n.d.). In other words, this is a term, added as a coefficient to the loss function, that prevents the model from overfitting the data. In most practical terms, this is done by penalising the squares of the model weights, so it is connected to L2 regularisation.
+We used typical values (0, 0.1, 0.01, 0.001) to explore the influence of different strengths of regularisation on model performance. The specific numbers were chosen as a way to see model behaviour from no regularisation (0) to strong regularisation (0.001) in a way to find an optimal balance of regularisation (Demir-Kavuk et al., 2011). <br>
+<br>
+</div>
+
+```{r, warning=FALSE, message=FALSE}
+# Visualize the model's confusion matrix
+confusionMatrixTable <- as.table(conf_matrix)
+ggplot(data = as.data.frame(confusionMatrixTable), aes(x = Actual, y = Predicted, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), vjust = 1.5, color = "black") +  
+  scale_fill_gradient(low = "blue", high = "red") +
+  theme_minimal() +
+  labs(title = "Confusion Matrix", x = "Actual Category", y = "Predicted Category") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+# Display the model results
+print(paste("Test F1 Score:", f1_score_test))
+print(paste("Test Accuracy:", accuracy_test))
+```
+
+<div class = "summary">
+<h4>Algorithm Evaluation</h4>
+The confusion matrix displays the counts of correct and incorrect predictions broken down by actual classes (X0, X1, X2) versus predicted classes (Package ‘Caret,’ 2023). <br>
+<br>
+In the test result. The best parameter is unveiled as Best Model Parameters: decay = 0.1. Correspondingly, the Test F1_Score = 0.666, Test Accuracy = 0.695 under the tuning results, indicating that the model is fairly good at identifying the correct classes but there might be room for improvement, particularly in reducing false positives and false negatives.<br>
+<br>
+</div>
+
+## Knn
+
+<div class = "summary">
+
+<h4> Algorithm Description </h4>
+
+K-Nearest Neighbors (KNN) is an instance-based learning algorithm best suited to classification problems(Dynamic Selection of K Nearest Neighbors in Instance-based Learning, 2012). In this algorithm, the distance between a test sample and each training set sample is computed, and then the K nearest neighbors are selected to vote for the category assignment of the test sample. In this study, we are going to use this method to predict the credit score of customers according to "low", "standard", and "good". <br>
+<br>
+
+<h4> Advantages: </h4>
+
+<ul>
+  <li>KNN is easy to implement, understandable, and deploy. </li>
+  <li>No need to make assumptions on data distribution; it is very robust to outliers and missing data(Soni, 2021). </li>
+  <li>Being able to handle multi-classification problems makes it work well in solving our task of classification for credit scores.</li>
+</ul>
+
+<h4> Disadvantages: </h4>
+
+<ul>
+  <li>It is computationally costly when the number of data is large since it computes the distance of every pair of samples. </li>
+  <li>An appropriate K value has to be set manually. If the K value is selected inappropriately, the related accuracy and generalization performance of the model will be affected. </li>
+  <li>It is sensitive to the scale of the data because various scales of features lead to a problem in the result; thus, it requires proper scaling of the data(Soni, 2021).</li>
+</ul>
+</div>
+
+```{r}
+# load data
+data_knn <- df5_with_credit_score
+
+# set data type of the categorical columns
+factor_columns_knn <- c("Occupation", "Credit_Mix", "Payment_of_Min_Amount", "Credit_Score")
+data_knn[factor_columns_knn] <- lapply(data_knn[factor_columns_knn], as.factor)
+
+# define target variable and the features
+target_var_knn <- "Credit_Score"
+features_knn <- data_knn[, setdiff(names(data_knn), target_var_knn)]
+target_knn <- data_knn[[target_var_knn]]
+
+# normalize these numeric columns
+scale_columns_knn <- c("Annual_Income", "Monthly_Inhand_Salary", "Outstanding_Debt")
+scaler_knn <- preProcess(data_knn[, scale_columns_knn], method = c("center", "scale"))
+data_knn[, scale_columns_knn] <- predict(scaler_knn, data_knn[, scale_columns_knn])
+
+# create a function to calculate F1 score
+calculate_F1_Score_knn <- function(cm) {
+  precision_knn <- diag(cm) / rowSums(cm)
+  recall_knn <- diag(cm) / colSums(cm)
+  f1_knn <- 2 * precision_knn * recall_knn / (precision_knn + recall_knn)
+  return(mean(f1_knn, na.rm = TRUE))
+}
+
+# set seed and use cross-validation folds
+set_seed_knn <- 5003
+set.seed(set_seed_knn)
+cv_folds_knn <- createFolds(target_knn, k = 10)
+
+# initialize the results dataframe
+evaluation_results_knn <- data.frame(K = integer(), Accuracy = numeric(), F1 = numeric())
+
+# iterate through different values of k for model evaluation
+k_values_knn <- seq(5, 15, by = 2)
+
+for (k in k_values_knn) {
+  fold_accuracies_knn <- numeric()
+  fold_f1_scores_knn <- numeric()
+
+  for (fold_index in seq_along(cv_folds_knn)) {
+    test_indices_knn <- cv_folds_knn[[fold_index]]
+    train_indices_knn <- setdiff(seq_len(nrow(data_knn)), test_indices_knn)
+
+    train_set_knn <- data_knn[train_indices_knn, ]
+    test_set_knn <- data_knn[test_indices_knn, ]
+
+    # train and test KNN model
+    knn_model_knn <- knn(train = train_set_knn[, setdiff(names(train_set_knn), target_var_knn)],
+                         test = test_set_knn[, setdiff(names(test_set_knn), target_var_knn)],
+                         cl = train_set_knn[[target_var_knn]],
+                         k = k, prob = FALSE, use.all = TRUE)
+
+    # calculate test set accuracy and F1 score
+    actual_targets_knn <- test_set_knn[[target_var_knn]]
+    confusion_matrix_knn <- table(Predictions = knn_model_knn, Actual = actual_targets_knn)
+    accuracy_knn <- sum(diag(confusion_matrix_knn)) / sum(confusion_matrix_knn)
+    f1_score_knn <- calculate_F1_Score_knn(confusion_matrix_knn)
+
+    fold_accuracies_knn <- c(fold_accuracies_knn, accuracy_knn)
+    fold_f1_scores_knn <- c(fold_f1_scores_knn, f1_score_knn)
+  }
+
+  # save the results of KNN
+  evaluation_results_knn <- rbind(evaluation_results_knn, data.frame(K = k, Accuracy = mean(fold_accuracies_knn), F1 = mean(fold_f1_scores_knn)))
+}
+
+# output best results
+optimal_results_knn <- evaluation_results_knn[which.max(evaluation_results_knn$Accuracy), ]
+print(optimal_results_knn)
+
+
+```
+
+<div class = "summary">
+<h4> Hyperparameter tuning </h4>
+In this project, I tried to imitate the hyperparameter K value of KNN by the key using grid search(Allibhai, 2022). Pick different Ks, ranging from 1 to 20, to measure the performance of the model at each K imitating 10-fold cross-validation to find the optimal K value. The k value is only used in odd numbers, which guarantees there will be a result every time, thus avoiding the confusion caused by the same number of results. The final selected K value can achieve high accuracy and F1 score while keeping the model simple.<br>
+<br>
+
+The reason behind the choices for k-value and range: <br>
+<br>
+<ul>
+  <li>To lessen the effect of noise: A small k value will be very susceptible to data noise, and a large k value can smooth the boundary of the classification decision; such a smoothing process is very effective in reducing the interference of noise with the prediction results(Band, 2023). </li>
+  <li>Prevent overfitting or underfitting: A smaller value for K can have a huge overfitting model, meaning that the model is very sensitive to the training data and generally low; a larger value for K might also lead to a smaller one. The information in the data is not particularly sensitive to capture all the features in the data(Bohara, 2023). </li>
+  <li>Computational Complexity: In a direct sense, the size of K also impacts the computational complexity. The larger the K, the more it takes for each prediction to compute, which is very important for working with large data(Bohara, 2023). </li>
+</ul>
+</div>
+
+```{r}
+# Load data
+data_knn <- df5_with_credit_score
+
+# Set the data type for categorical columns
+factor_columns_knn <- c("Occupation", "Credit_Mix", "Payment_of_Min_Amount", "Credit_Score")
+data_knn[factor_columns_knn] <- lapply(data_knn[factor_columns_knn], as.factor)
+
+# Define target and feature variables
+target_column_knn <- ncol(data_knn)
+target_knn <- data_knn$Credit_Score
+
+# Split data into training and test sets
+set.seed(0)
+train_index_knn <- createDataPartition(y = target_knn, p = 0.8, list = FALSE)
+train_data_knn <- data_knn[train_index_knn, ]
+test_data_knn <- data_knn[-train_index_knn, ]
+
+# Normalize the specified columns
+cols_to_scale_knn <- c("Annual_Income", "Monthly_Inhand_Salary", "Outstanding_Debt")
+preProcValues_knn <- preProcess(train_data_knn[, cols_to_scale_knn], method = c("center", "scale"))
+train_data_knn[, cols_to_scale_knn] <- predict(preProcValues_knn, train_data_knn[, cols_to_scale_knn])
+test_data_knn[, cols_to_scale_knn] <- predict(preProcValues_knn, test_data_knn[, cols_to_scale_knn])
+
+# Train the model with the best parameters specified
+best_k_value_knn <- 9  # The optimal k value found in your analysis
+knn_model_best_knn <- knn(train = train_data_knn[, -target_column_knn, drop = FALSE],
+                          test = test_data_knn[, -target_column_knn, drop = FALSE],
+                          cl = train_data_knn$Credit_Score,  
+                          k = best_k_value_knn,
+                          prob = FALSE,
+                          use.all = TRUE)
+
+# Predictive test set
+test_pred_knn <- knn_model_best_knn  # Store the prediction results
+test_actual_knn <- test_data_knn$Credit_Score
+
+# Calculate accuracy and F1 scores using the pre-defined F1 score function
+conf_matrix_knn <- table(test_pred_knn = test_pred_knn, test_actual_knn = test_actual_knn)
+accuracy_knn <- sum(diag(conf_matrix_knn)) / sum(conf_matrix_knn)
+f1_score_knn <- calculate_F1_Score_knn(conf_matrix_knn)
+
+# Create a data frame for the confusion matrix
+conf_matrix_df <- as.data.frame(table(Prediction = test_pred_knn, Reference = test_actual_knn))
+names(conf_matrix_df) <- c("Prediction", "Reference", "Frequency")
+
+# Draw the confusion matrix plot
+ggplot(conf_matrix_df, aes(x = Reference, y = Prediction, fill = Frequency)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = Frequency), vjust = 1.5, color = "black") +
+  scale_fill_gradient(low = "blue", high = "red") +
+  labs(title = "Confusion Matrix", x = "Actual Category", y = "Predicted Category") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+# Output the result of accuracy and F1 score
+print(paste("Test accuracy:", accuracy_knn))
+print(paste("F1 score:", f1_score_knn))
+
+```
+
+<div class = "summary">
+<h4> Algorithm evaluation </h4>
+The confusion matrix has revealed that this model works better in predicting the category "Standard," but it needs refinement for the categories "Low" and "Good." The best value of K, obtained using 10-fold cross-validation, equaled 9. Under this setting, the average classification performance demonstrated 0.80, while F1 was achieved at 0.78, indicating the difficulty of the model in dealing with the class imbalance in the data.<br>
+<br>
+</div>
+
+## random forest
+
+<div class="summary">
+<h4>Algorithm Description</h4>
+
+Random Forest is a machine-learning algorithm based on decision tree ensemble learning. It enhances prediction accuracy, and the problem of overfitting is tackled by the use of multiple decision trees built and the consensus of the result (Whitfield, 2022). In this work, we have chosen this algorithm for several reasons. The Random Forest is simple, intuitive, and easy to implement. <br>
+On the other hand, Random Forest does not assume any particular data distribution and is very robust to outliers and missing values (Shaikh, 2016). Data preprocessing has already taken the consideration of outliers and missing values, which gives a good foundation for this algorithm. Random Forest is suitable for multi-classification problems. Our target is to classify customers into "Poor", "Standard", and "Good" credit scores. Random Forest can well accommodate this type of multi-classification problem.<br>
+
+
+<h4>Advantages</h4>
+  <ul>
+    <li>Random Forest works with a relatively low computational cost, mainly on clean datasets (AlmaBetter, 2023) since most data cleaning operations have been solved through the data preprocessing step.</li>
+    <li>Random Forest does not have strict requirements on the distribution of the data (AlmaBetter, 2023), and it can work well even if the data has not been processed such as standardised or normalised.</li>
+    <li>Random Forest works well with high dimensional data, i.e., where the number of features is high (Ghosh & Cabrera, 2022). Our dataset contains multiple features which can be effectively utilised by Random Forest to improve prediction accuracy.</li>
+  </ul>
+
+  <h4>Limitation</h4>
+  <ul>
+    <li>Although we have dealt with outliers in the data preprocessing stage, the performance of the Random Forest may be affected if a high number of outliers are still present in some features (AlmaBetter, 2023).</li>
+    <li>Random Forest requires manual selection of the number of decision trees and the size of its setting affects the fitting (Shaikh, 2016). Therefore, we need to select the optimal number of decision trees through methods such as cross-validation.</li>
+    <li>Random Forest has relatively poor interpretability, especially when the number of decision trees is large (Shaikh, 2016).</li>
+  </ul>
+
+</div>
+
+```{r, warning=FALSE, message=FALSE}
+# load the data
+data.rf <- df5_with_credit_score
+data.rf$Occupation <- as.factor(data.rf$Occupation)
+data.rf$Credit_Mix <- as.factor(data.rf$Credit_Mix)
+data.rf$Payment_of_Min_Amount <- as.factor(data.rf$Payment_of_Min_Amount)
+data.rf$Credit_Score <- as.factor(data.rf$Credit_Score)
+
+set.seed(5003)
+
+folds.rf <- createFolds(y = data.rf$Credit_Score, k = 10)
+
+split_folds.rf <- function(x, dat){
+  split_index.rf <- rep("training", nrow(dat))
+  split_index.rf[x] <- "test"
+  return(list(train = dat[which(split_index.rf == "training"),],
+              test = dat[which(split_index.rf == "test"),]))
+}
+splited.list.rf <- lapply(folds.rf, split_folds.rf, dat = data.rf)
+
+names(splited.list.rf) <- c(1:10)
+
+doRandomForestCV <- function(x, label.name = "Credit_Score", tuneGrid = NULL) {
+  training <- x$train
+  test <- x$test
+  
+  # define cross-validation settings
+  train_control <- trainControl(method = "cv", number = 5)
+  
+  # train the model with parameter tuning
+  model <- train(as.formula(paste(label.name, "~ .")),
+                 data = training,
+                 method = "ranger",
+                 tuneGrid = tuneGrid,
+                 trControl = train_control)
+  
+  predicted <- predict(model, newdata = test)
+  observed <- test[[label.name]]
+  
+  return(list(predicted = predicted, 
+              observed = observed,
+              best_params = model$bestTune))
+}
+
+# define a grid of hyperparameters
+tune_grid.cv.rf <- expand.grid(
+  mtry = c(2, 4, 6),
+  min.node.size = c(1, 3, 5),
+  splitrule = c("gini", "extratrees")
+)
+
+
+res_10fold.rf <- lapply(splited.list.rf, doRandomForestCV, tuneGrid = tune_grid.cv.rf)
+
+# calculate confusion matrix for each fold
+conf_10fold.rf <- lapply(res_10fold.rf, function(x){
+ predicted = x$predicted
+ observed = x$observed
+ caret::confusionMatrix(data = predicted, reference = observed)
+})
+
+metric_byClass.rf <- lapply(conf_10fold.rf, function(x){
+ x$byClass
+})
+metrics.rf <- Reduce('+', metric_byClass.rf)/length(metric_byClass.rf)
+fold_accuracies.rf <- sapply(conf_10fold.rf, function(x) {
+ x$overall["Accuracy"]
+})
+
+# calculate mean accuracy
+mean_accuracy.rf <- mean(fold_accuracies.rf)
+f1_column.rf <- metrics.rf[, "F1"]
+mean_f1.rf <- mean(f1_column.rf)
+
+# Find the most frequent best parameters
+best_params.list <- lapply(res_10fold.rf, function(x) x$best_params)
+best_params.df <- do.call(rbind, best_params.list)
+best_params.freq <- best_params.df %>%
+  group_by(mtry, min.node.size, splitrule) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+best_params <- best_params.freq[which.max(best_params.freq$Count),]
+mtry.rf <- best_params$mtry
+node_size.rf <- best_params$min.node.size
+splitrule.rf <- levels(best_params$splitrule)[best_params$splitrule]
+cat("Mean Accuracy:", mean_accuracy.rf, 
+    "\nMean F1 Score:", mean_f1.rf,
+    "\nBest mtry:", mtry.rf,
+    "\nBest min.node.size:", node_size.rf,
+    "\nBest splitrule:", splitrule.rf, "\n")
+
+```
+
+<div class="summary">
+
+<h4>Hyperparameter Tuning</h4>
+
+The grid search method was applied in the project to tune three key hyperparameters of the Random Forest and evaluate the performance of the model under different parameter combinations by cross-validation. First, we chose to tune the three hyperparameters: `mtry`, `min.node.size`, and `splitrule` (Wright et al., 2021). Among them, `mtry` represents the number of features applied at each split, and `min.node.size` is the least samples in the terminal node of the tree, and `splitrule` is the criterion of node-splitting. Next, a grid was created, containing combinations of candidate values for each hyperparameter. Models were then trained and evaluated for each combination, which is exhaustive but computationally intensive.<br>
+
+</div>
+
+```{r}
+# hyperparameter
+best_model.rf <- train(Credit_Score ~ ., 
+                       data = data.rf,
+                       method = "ranger",
+                       tuneGrid = data.frame(mtry = mtry.rf,
+                                             min.node.size = node_size.rf,
+                                             splitrule = splitrule.rf),
+                       trControl = trainControl(method = "cv", number = 10),
+                       importance = "impurity")
+data.test <- splited.list.rf[[1]]$test
+predictions.test <- predict(best_model.rf, newdata = data.test)
+
+cm.test <- confusionMatrix(data = predictions.test, reference = data.test$Credit_Score)
+cm.df <- as.data.frame.matrix(cm.test$table)
+colnames(cm.df) <- c("0", "1", "2")
+cm.df.long <- data.frame(
+  Actual = rep(c("0", "1", "2"), each = 3),
+  Predicted = rep(c("0", "1", "2"), times = 3),
+  Count = as.vector(cm.test$table)
+)
+
+cm.df.long$Actual <- factor(cm.df.long$Actual)
+cm.df.long$Predicted <- factor(cm.df.long$Predicted)
+
+# Revised plotting function
+plot_cm.rf <- function(data, title) {
+  ggplot(data, aes(x = Predicted, y = Actual, fill = Count)) +
+    geom_tile() +
+    geom_text(aes(label = Count), vjust = 0.5, color = "black", size = 4) +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = title, x = "Predicted Category", y = "Actual Category") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(hjust = 0.5))
+}
+
+plot_title.rf <- paste("Confusion Matrix (Random Forest, Best Parameters)",
+                       "\nMtry =", mtry.rf, ", Min.node.size =", node_size.rf,
+                       ", Splitrule =", splitrule.rf)
+plot_cm.rf(cm.df.long, plot_title.rf)
+```
+
+<div class="summary">
+
+<h4>Algorithm evaluation</h4>
+
+By obtaining 10-fold cross-validation the best combination of hyperparameters: mtry = 4, min.node.size = 5, and splitrule = 'extratrees'. The corresponding performance gives an average accuracy of 0.823 and an average F1 of 0.814, which shows very good overall performance. However, from the heatmap of the confusion matrix, it can be depicted that the model's prediction, it can be depicted that the model's prediction performance on small classes, especially class `2`(Good), still has a flaw. Which can reflect a class imbalance problem in the data.<br>
+
+</div>
+
+```{r}
+# plot feature importance
+importance_scores.rf <- importance(best_model.rf$finalModel, type = 1)  # Type 1 for variable importance
+if ("ranger" %in% class(best_model.rf$finalModel)) {
+  importance_scores.rf <- best_model.rf$finalModel$variable.importance
+}
+importance_df.rf <- data.frame(
+  Feature = names(importance_scores.rf),
+  Importance = importance_scores.rf,
+  stringsAsFactors = FALSE
+)
+importance_df.rf <- importance_df.rf[order(importance_df.rf$Importance, decreasing = TRUE), ]
+
+ggplot(importance_df.rf, aes(x = reorder(Feature, Importance), y = Importance, fill = Importance)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Feature Importance (Random Forest)",
+       x = "Feature",
+       y = "Importance") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+<div class="summary">
+
+<h4>Feature importance</h4>
+
+One of the important features of Random Forest is that it provides measures for feature importance (GeeksforGeeks, 2024). Feature importance is visualised so that we can intuitively realise the contribution of each variable to the prediction made by the model. From the bar chart regarding feature importance, it can be seen that the key features for credit scoring are Outstanding_Debt, Interest_Rate, and Credit_Mix1, but the importance of features such as Occupation2 and Credit_Mix2 is relatively small.<br>
+
+</div>
+
+## Decision Tree
+
+<div class = "summary">
+
+<h4> Algorithm Description </h4>
+
+A decision tree classifier is a popular machine learning algorithm used for classification tasks. It starts with the entire dataset at the root node, and then splits the dataset into subsets based on the feature that provides the best split according to a chosen criterion (e.g., information gain).(K.Rai, MS Devi, 2016) This process is repeated recursively for each subset, creating a tree-like structure. At each node, the algorithm selects the feature and the criterion that best separates the data into purest subsets in order to maximize information gain. This repeated splitting process continues until one of the stopping criteria is met, such as reaching a maximum depth, or no further improvement in gaining information.(Sharad Saxena, 2022)
+<br>
+
+<h4> Advantages: </h4>
+<u1>
+  <li>Interpretability: Decision trees are easy to interpret. The model's decision-making process can be visualized, making it useful for explaining predictions to stakeholders.(O. Z. Maimon,  L. Rokach, 1997)</li>
+  <li>Not assuming linear relationships: Decision trees do not assume linear relationships between features and the target variable to be linear and is able to capture non-linear relationships.(E Demirović, PJ Stuckey, 2021)</li>
+  <li>Feature importance: Decision trees provide a measure of feature importance, allowing users to identify the most useful features for prediction.(MRA Iqbal, MS Rahaman, SI Nabil, 2012)</li>
+</u1>
+  
+<h4> Disadvantages: </h4>
+
+<u1>
+  <li>Prone to overfitting: Decision trees tend to overfit the training data, especially when the tree depth is not controlled or when the dataset is noisy, which may lead to poor generalization performance on unseen data.(A. Amro, M. Al-Akhras, 2021)</li>
+  <li>Bias towards Dominant Classes: Decision trees, especially with unbalanced class distributions, may bias towards the majority class, resulting in poor performance for minority classes.(I. Chaabane, R. Guermazi, M. Hammami, 2020)</li>
+  <li>Instability: Since decision trees make decisions based on the optimal splits, minor changes in the dataset may lead to different feature selections or thresholds. This instability can affect the robustness of the model, especially when the dataset is noisy or when there are multiple features with similar predictive power.(R. H. Li, G. G. Belford 2002)</li>
+</u1>
+</div>
+
+```{r}
+# load the data
+data.dt <- df5_with_credit_score
+
+# set seed
+set.seed(1)
+
+# create folds for cross-validation
+folds.dt <- createFolds(y = data.dt$Credit_Score, k = 10)
+
+# define function to split data
+split_folds <- function(x, dat){
+  split_index <- rep("training", nrow(dat))
+  split_index[x] <- "test"
+  return(list(train = dat[which(split_index == "training"),],
+              test = dat[which(split_index == "test"),]))
+}
+
+# apply split function to each fold and store results in a list
+splited.list <- lapply(folds.dt, split_folds, dat = data.dt)
+
+# assign names to the splited lists
+names(splited.list) <- c(1:10)
+
+# create function for applying decision tree
+doDecisionTree <- function(x, label.name = "Credit_Score", tuneGrid = NULL) {
+  training <- x$train
+  test <- x$test
+  
+  training[[label.name]] <- factor(training[[label.name]], levels = 0:2)
+  test[[label.name]] <- factor(test[[label.name]], levels = 0:2)
+  
+  feature.vars <- !names(training) %in% label.name
+  
+  # perform parameter tuning
+  if (!is.null(tuneGrid)) {
+    ctrl <- trainControl(method = "cv", number = 5)
+    model <- train(as.formula(paste(label.name, "~ .")), 
+                   data = training, 
+                   method = "rpart",
+                   tuneGrid = tuneGrid,
+                   trControl = ctrl)
+  } else {
+    # fit decision tree model
+    model <- tree(formula = paste(label.name, "~ ."), data = training)
+  }
+  
+  # plot the decision tree
+  plot(model)
+  
+  # get class predictions
+  predicted <- predict(model, newdata = test)
+  observed <- test[[label.name]]
+  
+  return(list(predicted = predicted, observed = observed))
+}
+
+# define a grid of hyperparameters
+tuneGrid.dt <- expand.grid(cp = seq(0.01, 1, by = 0.01))
+
+# apply decision tree with parameter tuning
+res_10fold <- lapply(splited.list, doDecisionTree, tuneGrid = tuneGrid.dt)
+
+# calculate confusion matrix for each fold
+conf_10fold <- lapply(res_10fold, function(x){
+  predicted = x$predicted
+  observed = x$observed
+  caret::confusionMatrix(data = predicted, reference = observed)
+})
+
+# get metrics from each confusion matrix
+metric_byClass <- lapply(conf_10fold, function(x){
+  x$byClass
+})
+
+# calculate the mean of metrics of all folds
+metrics.dt <- Reduce('+', metric_byClass)/length(metric_byClass)
+
+# get the accuracy of each fold
+fold_accuracies <- sapply(conf_10fold, function(x) {
+  x$overall["Accuracy"]
+})
+
+# calculate mean accuracy of all folds
+mean_accuracy.dt <- mean(fold_accuracies)
+
+# print mean accuracy
+print(paste("Mean Accuracy:", mean_accuracy.dt))
+
+# get the F1 score of each class
+f1_column.dt <- metrics.dt[, "F1"]
+
+# calculate the mean F1 score
+mean_f1.dt <- mean(f1_column.dt)
+
+# print mean F1 score
+print(paste("Mean F1 Score:", mean_f1.dt))
+
+# get performance metrics for each fold
+performance_metrics.dt <- lapply(conf_10fold, function(x) x$overall["Accuracy"])
+
+# find the index of the best-performing model
+best_model_index.dt <- which.max(performance_metrics.dt)
+
+# get predictions from the best-performing model
+best_model_predictions.dt <- res_10fold[[best_model_index.dt]]$predicted
+best_model_observed.dt <- res_10fold[[best_model_index.dt]]$observed
+
+# calculate the confusion matrix for the best model
+conf_matrix_best_model.dt <- confusionMatrix(data = best_model_predictions.dt, reference = best_model_observed.dt)
+
+# get accuracy of the best model
+best_model_metrics.dt <- conf_10fold[[best_model_index.dt]]$overall
+best_model_accuracy.dt <- best_model_metrics.dt["Accuracy"]
+
+# get F1-score of the best model
+best_model_f1_score.dt <- F1_Score(y_pred = best_model_predictions.dt, y_true = best_model_observed.dt)
+
+# best model acc
+print(paste("Best Model Accuaracy:", best_model_accuracy.dt))
+
+# best model f1
+print(paste("Best Model F1-Score:", best_model_f1_score.dt))
+```
+
+<div class = "summary">
+
+<h4> Hyperparameter tuning </h4>
+
+The hyperparameter being tuned for the decision tree model is the complexity parameter (‘cp’). The ‘tuneGrid.dt’ grid specifies the range of values for ‘cp’ from 0.01 to 1, incrementing by 0.01. The complexity parameter represents the cost of adding another split to the model. It represents the trade-off between the complexity of the tree in terms of number of splits and its goodness of fit to the training data. A smaller 'cp' value results in a more complex tree with more splits, adding to the possibility of overfitting of the model to the training dataset, while a larger 'cp' value leads to a simpler tree with fewer splits.(RG Mantovani, T Horváth, ALD Rossi, 2023)
+<br>
+
+When tuning the complexity parameter for decision trees, 0.01 indicates a small value for 'cp', suggesting that the algorithm should focus on making splits in the tree, which may lead to a more complex and potentially overfitting tree. 1 represents a larger value for 'cp', meaning the algorithm does not make more splits than necessary. This can result in a simpler tree, reducing the risk of overfitting. To tune the hyperparameters, 10-fold cross-validation is applied in the train function. The average performance across all folds is used to evaluate the model's performance for each set of hyperparameters in the tuning grid. And then, the best-performing set of hyperparameters is selected based on the chosen evaluation metric.
+</div>
+
+```{r}
+# visualize confusion matrix
+cm_matrix.dt <- as.data.frame(conf_matrix_best_model.dt$table)
+colnames(cm_matrix.dt) <- c("Reference", "Prediction", "Frequency")
+ggplot(data = cm_matrix.dt, aes(x = Reference, y = Prediction, fill = Frequency)) +
+    geom_tile() +
+    geom_text(aes(label = Frequency), vjust = 1.5, color = "white") +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = "Confusion Matrix", x = "Actual Category", y = "Predicted Category") +
+    theme_minimal()
+```
+
+```{r}
+# create function for applying decision tree
+doDecisionTree.1 <- function(x, label.name = "Credit_Score", tuneGrid = NULL) {
+  
+  # get training and test set
+  training <- x$train
+  test <- x$test
+  
+  # convert label to 0, 1, and 2
+  training[[label.name]] <- factor(training[[label.name]], levels = 0:2)
+  test[[label.name]] <- factor(test[[label.name]], levels = 0:2)
+  
+  # build decision tree model with cross-validation
+  if (!is.null(tuneGrid)) {
+    ctrl <- trainControl(method = "cv", number = 5)
+    model <- train(as.formula(paste(label.name, "~ .")), 
+                   data = training, 
+                   method = "rpart",
+                   tuneGrid = tuneGrid,
+                   trControl = ctrl)$finalModel
+  } else {
+    model <- rpart(as.formula(paste(label.name, "~ .")), data = training)
+  }
+  
+  # get predictions
+  predicted <- predict(model, newdata = test, type = "class")
+  observed <- test[[label.name]]
+  accuracy <- sum(predicted == observed) / length(observed)
+  
+  # return results
+  return(list(model = model, predicted = predicted, observed = observed, accuracy = accuracy))
+}
+
+# get the results using the above function
+results.dt <- lapply(splited.list, doDecisionTree.1, tuneGrid = expand.grid(cp = seq(0.01, 0.1, by = 0.01)))
+
+# find the index of best model
+best_model_index.dt <- which.max(sapply(results.dt, function(x) x$accuracy))
+best_model.dt <- results.dt[[best_model_index.dt]]$model
+
+# plot the best decision tree model
+rpart.plot(best_model.dt)
+```
+
+<div class = "summary">
+
+<h4> Algorithm evaluation </h4>
+
+As shown in the confusion matrix, it is confirmed that the accuracy achieved in the largest class (‘Standard’) is the greatest among all classes. The underperformance in the other two classes is to be expected due to a decision tree’s shortcoming of bias towards dominant class but could be also due to the model’s overfitting nature. Despite this, both F1-score and accuracy demonstrate a reasonable prediction result for the best model, with F1-score being 0.714 and accuracy 0.718, indicating an overall decent performance on the dominant class, if not the minority classes.
+</div>
+
+
+
+## SVM
+
+<div class="summary">
+<h4>Algorithm Description</h4>
+
+SVC is a variant of SVM for classification tasks. The goal of SVC is to find the best hyperplane to separate different classes of data points at the greatest interval, by which to maximise the difference between different classes, and to maximise the distance of support vectors to this hyperplane, and by using kernel functions, SVC can handle nonlinear relationships by mapping data to higher dimensional Spaces(Gholami & Fakhari, 2017).
+
+<h4>Advantages</h4>
+  <ul>
+    <li>Can handle multi-classification problems, SVC can be extended to multi-classification problems through effective strategies.</li>
+    <li>Strong generalisation ability, able to deal with overfitting problems.</li>
+    <li>Strong flexibility, which can handle the nonlinear problems of the data set by adjusting the kernel function.</li>
+    <li>Strong robustness, insensitive to outliers.</li>
+  </ul>
+
+  <h4>Disadvantages</h4>
+  <ul>
+    <li> For large-scale data sets, the data cost is high and the training time is long</li>
+    <li>Sensitive to parameter selection</li>
+    <li>Poor interpretability</li>
+  </ul>
+So I chose SVC to deal with the classification problem of credit scores, its ability to efficiently handle high and non-linear data, and the problem of multiple classifications. Although it brings some challenges, such as the complexity of parameter selection and high computational cost, these problems can be solved to a certain extent with appropriate technologies and strategies.<br>
+
+</div>
+
+```{r, warning=FALSE, message=FALSE}
+# load dataset
+data <- df5_with_credit_score
+set.seed(5003)
+# Divide the data set into a training set and a test set
+trainIndex <- createDataPartition(data$Credit_Score, p = .7, list = FALSE)
+train <- data[trainIndex, ]
+test <- data[-trainIndex, ]
+# Convert to a factor type variable
+train$Credit_Score <- factor(train$Credit_Score)
+test$Credit_Score <- factor(test$Credit_Score)
+
+# grid search
+train_control_svm <- trainControl(method = "cv", number = 10)
+tune_grid <- expand.grid(C = c(0.1, 10),
+                         sigma = c(0.01, 0.1))
+svm_model <- train(Credit_Score ~ ., data = train, method = "svmRadial",
+                   trControl = train_control_svm, tuneGrid = tune_grid, preProcess = "scale")
+print(svm_model$bestTune)
+```
+
+<div class="summary">
+<h4>Hyperparameter Tuning</h4>
+
+For the construction of SVM model, C value, Kernel and Sigma are selected to build the model. C value controls the model's penalty for wrong classification to balance the accuracy and generalization ability of the model on the training set. A smaller C value means that the model has a greater tolerance for errors. It will improve the generalization ability of the model but may lead to underfitting, while a larger C value, on the contrary, may lead to overfitting. Kernel is used to determine how data is mapped to the high-dimensional space. By selecting different kernels, linearly indivisible data sets in the original space can become distinguishable. In this model construction, RBF is chosen, because the Kernel is more suitable for processing complex linear indivisible data. The parameter Sigma controls the Kernel width. By increasing the value of Sigma, the model can better capture the details in the data, but there is the risk of overfitting. In order to select the best parameters, grid search is used to tune parameters, and finally the best parameters are found (C: 10, Sigma: 0.1, Kernel: RBF).<br>
+
+</div>
+
+```{r}
+# Make predictions on the test set
+predictions_svm <- predict(svm_model, test[, -which(names(test) == "Credit_Score")], probability = TRUE)
+# Make sure factor level of predicted value and true label match all levels of the test set
+all_levels <- sort(unique(test$Credit_Score))
+predictions_svm <- factor(predictions_svm, levels = all_levels)
+true_y <- factor(test[, "Credit_Score"], levels = all_levels)
+# Get confusion matrix
+conf_matrix_svm <- confusionMatrix(predictions_svm, true_y)
+cm_df <- as.data.frame.table(conf_matrix_svm$table)
+
+ggplot(data = cm_df, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile() +
+  scale_fill_gradient(low = "blue", high = "red") +
+  geom_text(aes(label = Freq), color = "white", size = 4) +
+  labs(title = "Confusion Matrix", x = "Actual", y = "Predicted", fill = "Freq") +
+  theme_minimal()
+```
+
+
+```{r}
+# Get accuracy and f1_score
+accuracy <- conf_matrix_svm$overall['Accuracy']
+
+f1_scores <- sapply(levels(true_y), function(level) {
+  if (sum(predictions_svm == level) == 0 || sum(true_y == level) == 0) {
+    return(NA)
+  } else {
+    return(F1_Score(y_pred = predictions_svm[true_y == level], y_true = true_y[true_y == level]))
+  }
+})
+
+# Get the average of F1 scores
+f1_score <- mean(f1_scores, na.rm = TRUE)
+
+print(paste("Accuracy:", accuracy))
+print(paste("F1 Score:", f1_score))
+```
+
+<div class="summary">
+
+<h4>Algorithm evaluation</h4>
+
+For the evaluation phase of the model, we plotted the confusion matrix of the SVM model and evaluated the model by calculating its accuracy and F1 score. These charts show the performance of the optimized SVM model. The confusion matrix shows high prediction accuracy, especially for class 1 (Standard), although the other two classes are slightly less discriminative. Both performance metrics also show good F1 scores and accuracy, which also highlight the effective tuning of multi-class classification, indicating good overall model performance.<br>
+
+</div>
+
+# Classification performance evaluation
+
+<div class = "summary">
+The classification models, including Random Forest, Support Vector Machine (SVM), K-Nearest Neighbors (KNN), Decision Tree, and Logistic Regression, are to be compared. This part of the analysis is based on two performance metrics, F1-score and accuracy.
+</div>
+
+<div class = "summary">
+
+<h4> Comparison by F1-score </h4>
+
+<table> 
+  <tr> 
+    <th>Model</th> 
+    <th>F1-score</th>
+  </tr> 
+  <tr>
+    <td>SVM</td> 
+    <td>0.846</td>
+  </tr> 
+  <tr> 
+    <td>Random Forest</td>
+    <td>0.814</td>
+  </tr> 
+  <tr> 
+    <td>Decision Tree</td>
+    <td>0.714</td>
+  </tr>
+  <tr> 
+    <td>KNN</td> 
+    <td>0.669</td>
+  </tr> 
+  <tr> 
+    <td>Logistic Classification</td> 
+    <td>0.666</td>
+  </tr>
+</table>
+
+The F1-scores for the models are as follows: SVM achieved the highest F1-score of 0.846, Random Forest 0.814, Decision Tree 0.714, KNN 0.669, and Logistic Regression 0.666. These scores provide insight into the models' ability to balance precision and recall, with higher values indicating better performance in capturing both true positives and true negatives.
+</div>
+
+<div class = "summary">
+
+<h4> Comparison by Accuracy </h4>
+
+<table> 
+  <tr> 
+    <th>Model</th> 
+    <th>Accuracy</th>
+  </tr> 
+  <tr>
+    <td>Random Forest</td> 
+    <td>0.823</td>
+  </tr> 
+  <tr> 
+    <td>SVM</td>
+    <td>0.755</td>
+  </tr> 
+  <tr> 
+    <td>Decision Tree</td>
+    <td>0.718</td>
+  </tr>
+  <tr> 
+    <td>KNN</td> 
+    <td>0.709</td>
+  </tr> 
+  <tr> 
+    <td>Logistic Classification</td> 
+    <td>0.695</td>
+  </tr>
+</table>
+
+In terms of accuracy, which measures the overall correctness of the predictions, the models perform as follows: Random Forest reached the highest score of 0.823, followed by SVM(0.755), Decision Tree(0.718), KNN(0.709), with Logistic Regression still at the bottom of the list (0.695). While accuracy is an essential metric, it should be interpreted alongside F1-score to gain a comprehensive understanding of model performance.
+</div>
+
+<div class = "summary">
+Based on the evaluation results, Random Forest model is selected as the final model for this classification task. With the highest F1-score of 0.815 and a decent accuracy of 0.823, Random Forest demonstrated superior performance compared to the other models evaluated. Additionally, Random Forest is known for its robustness, ability to handle high-dimensional data, and resistance to overfitting, making it a suitable choice. Regarding other alternatives, SVM does have a commendable F1-score of 0.846. However, not having a high enough accuracy aside, it also faces challenges with serious computational cost, hyperparameter sensitivity, and interpretability, making it a less desirable candidate.
+</div>
+
+# Conclusion
+
+<div class = "summary">
+This project applies machine learning algorithms to construct credit score prediction models based on various demographic and financial attributes of customers. Among several employed classification algorithms, the Random Forest model demonstrates the best performance in accuracy and model stability. However, limitations still exist:
+<u1>
+  <li>Random Forest model performs poorly in predicting minority classes (especially class "Good"), which is likely due to data imbalance. This issue can be addressed through resampling techniques like SMOTE, random undersampling, or assigning different weights to classes.</li>
+  <li>Despite providing feature importance metrics, the interpretability of the Random Forest model remains limited, especially with a large number of decision trees. To enhance interpretability, selecting the most predictive feature subset based on feature importance can reduce model complexity.</li>
+</u1>
+Future work can focus on addressing these issues to further optimize model performance using the mentioned techniques. Additionally, exploring integration of credit score prediction with other business scenarios, in collaboration with domain experts, can lead to more practical credit scoring mechanisms.
+</div>
+
+# Reference
+
+<div class = "summary">
+‌A. Amro, M. Al-Akhras (2021), Avoiding Overfitting of Decision Trees. https://link.springer.com/content/pdf/10.1007/978-1-84628-766-4_8.pdf <br>
+‌Abdi, H., & Williams, L. J. (2010). Principal component analysis. Wiley Interdisciplinary Reviews. Computational Statistics, 2(4), 433–459. https://doi.org/10.1002/wics.101<br>
+‌Abdi, H., Williams, L. J., & Valentin, D. (2013). Multiple factor analysis: principal component analysis for multitable and multiblock data sets. Wiley Interdisciplinary Reviews. Computational Statistics, 5(2), 149–179. https://doi.org/10.1002/wics.1246<br>
+‌Allibhai, J. (2022, June 21). Building a k-Nearest-Neighbors (k-NN) Model with Scikit-learn. Medium. https://towardsdatascience.com/building-a-k-nearest-neighbors-k-nn-model-with-scikit-learn-51209555453a<br>
+‌Allison, P. (2024, March 12). How Relevant is the Independence of Irrelevant Alternatives? Statistical Horizons. https://statisticalhorizons.com/iia/<br>
+‌AlmaBetter. (2023, April 12). Random Forest Algorithm in Machine Learning. AlmaBetter. https://www.almabetter.com/bytes/tutorials/data-science/random-forest<br>
+‌Band, A. (2023, December 12). How to find the optimal value of K in KNN? - Towards Data Science. Medium. https://towardsdatascience.com/how-to-find-the-optimal-value-of-k-in-knn-35d936e554eb<br>
+‌Bohara, R. K. (2023, October 29). How to find the optimal value of K in KNN? - Rohan Kumar Bohara - Medium. Medium. https://medium.com/@rkbohara097/how-to-find-the-optimal-value-of-k-in-knn-2d5177430f2a<br>
+‌Demir-Kavuk, O., Kamada, M., Akutsu, T., & Knapp, E. (2011). Prediction using step-wise L1, L2 regularization and feature selection for small data sets with large number of features. BMC Bioinformatics, 12(1). https://doi.org/10.1186/1471-2105-12-412<br>
+‌Dynamic selection of k nearest neighbors in instance-based learning. (2012, August 1). IEEE Conference Publication | IEEE Xplore. https://ieeexplore.ieee.org/abstract/document/6302995<br>
+‌E Demirović, PJ Stuckey (2021), Optimal Decision Trees for Nonlinear Metrics. https://ojs.aaai.org/index.php/AAAI/article/view/16490<br>
+‌El-Habil, A. M. (2012). An application on multinomial logistic regression model. Pakistan Journal of Statistics and Operation Research, 8(2), 271. https://doi.org/10.18187/pjsor.v8i2.234<br>
+‌Fushiki, T. (2009). Estimation of prediction error by using K-fold cross-validation. Statistics and Computing, 21(2), 137–146. https://doi.org/10.1007/s11222-009-9153-8<br>
+‌GeeksforGeeks. (2024, April 5). Feature Importance with Random Forests. GeeksforGeeks; GeeksforGeeks. https://www.geeksforgeeks.org/feature-importance-with-random-forests/<br>
+‌Gholami, R., & Fakhari, N. (2017). Support Vector Machine: Principles, Parameters, and Applications. In Handbook of Neural Computation (pp. 515-535). Academic Press. https://doi.org/10.1016/B978-0-12-811318-9.00027-2<br>
+‌Ghosh, D., & Cabrera, J. (2022). Enriched Random Forest for High Dimensional Genomic Data. IEEE/ACM Transactions on Computational Biology and Bioinformatics, 19(5), 2817–2828. https://doi.org/10.1109/tcbb.2021.3089417<br>
+‌Hamid, Y., & M. Sugumaran. (2019). A t-SNE based non linear dimension reduction for network intrusion detection. International Journal of Information Technology, 12(1), 125–134. https://doi.org/10.1007/s41870-019-00323-9<br>
+‌I. Chaabane, R. Guermazi, M. Hammami (2020), Enhancing techniques for learning decision trees from imbalanced data. https://link.springer.com/article/10.1007/s11634-019-00354-x<br>
+‌Kajal Rai, M. Syamala Devi, Ajay Guleri.(2016, January) Decision Tree Based Algorithm for Intrusion Detection. https://www.researchgate.net/publication/298175900<br>
+‌Kook, L., Herzog, L., Hothorn, T., Dürr, O., & Sick, B. (2022). Deep and interpretable regression models for ordinal outcomes. Pattern Recognition, 122, 108263. https://doi.org/10.1016/j.patcog.2021.108263<br>
+‌MRA Iqbal, MS Rahaman, SI Nabil (2012), Construction of Decision Trees by Using Feature Importance Value for Improved Learning Performance. https://link.springer.com/chapter/10.1007/978-3-642-34481-7_30<br>
+‌O. Z. Maimon,  L. Rokach (1997), Data Mining With Decision Trees: Theory And Applications. Data mining with decision trees: theory and applications<br>
+‌Package ‘caret.’ (2023). https://cran.radicaldevelop.com/web/packages/caret/caret.pdf<br>
+‌Paris, R. (2022). Credit score classification. Kaggle.com. https://www.kaggle.com/datasets/parisrohan/credit-score-classification/data?select=train.csv<br>
+‌Prinzie, A., & Van Den Poel, D. (2008). Random Forests for multiclass classification: Random MultiNomial Logit. Expert Systems With Applications, 34(3), 1721–1732. https://doi.org/10.1016/j.eswa.2007.01.029<br>
+‌R. H. Li, G. G. Belford (2002), Instability of decision tree classification algorithms. https://dl.acm.org/doi/abs/10.1145/775047.775131<br>
+‌Review of Smart Meter Data Analytics: Applications, Methodologies, and Challenges. (n.d.). IEEE Journals & Magazine | IEEE Xplore. https://ieeexplore.ieee.org/abstract/document/8322199?casa_token=6GI9EsmFwpoAAAAA:3fIJojk8DdWgiBQATlfky59DjZEykcm4HqKPr5vQNQe39-yNOzXtiFZ0cv6Vf7CayhLENO-niQ<br>
+‌RG Mantovani, T Horváth, ALD Rossi (2023, December), Better Trees: An empirical study on hyperparameter tuning of classification decision trees. https://www.researchgate.net/publication/329465048_Better_Trees_An_empirical_study_on_hyperparameter_tuning_of_classification_decision_trees<br>
+‌S Saxena (2022), Tree-Based Machine Learning Methods in SAS Viya. Tree-Based Machine Learning Methods in SAS Viya<br>
+‌Shaikh, J. (2016, December 5). 45 questions to test Data Scientists on Tree Based Algorithms (Decision tree, Random Forests, XGBoost). Analytics Vidhya. https://www.analyticsvidhya.com/blog/2016/12/detailed-solutions-for-skilltest-tree-based-algorithms/<br>
+‌Shaikh, J. (2016, December 5). 45 questions to test Data Scientists on Tree Based Algorithms (Decision tree, Random Forests, XGBoost). Analytics Vidhya. https://www.analyticsvidhya.com/blog/2016/12/detailed-solutions-for-skilltest-tree-based-algorithms/<br>
+‌Soni, A. (2021, December 15). Advantages And Disadvantages of KNN - Anuuz Soni - Medium. Medium. https://medium.com/@anuuz.soni/advantages-and-disadvantages-of-knn-ee06599b9336<br>
+‌Whitfield, B. (2022). Random Forest: A Complete Guide for Machine Learning. Built In. https://builtin.com/data-science/random-forest-algorithm<br>
+‌Wright, M., Wager, S., Probst, P., & Maintainer. (2021). Package “ranger” Type Package Title A Fast Implementation of Random Forests. https://cran.r-project.org/web/packages/ranger/ranger.pdf<br>
+
+</div>
+
+# Contribution Statement
+
+<div class = "summary">
+All members contribute equally to all aspects of this project.
+</div>

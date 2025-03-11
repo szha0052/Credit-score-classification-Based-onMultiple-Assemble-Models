@@ -1,0 +1,2319 @@
+---
+title: "STAT5003_A_1"
+author: "Author:<br>A: zilu0423  540245006<br>B: szha0052 530377698<br>C: ywan0228 530722304<br>D: yfan4715 510195249<br>E: whan4429 510074058<br>F: pwan0475 540453678"
+subtitle: Group_50
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: true
+    self_contained: true
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  soln: false
+  supp: false
+  show: hide
+---
+
+<style>
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th, td {
+  text-align: left;
+  padding: 0 0 3px 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background-color: #f2f2f2;
+}
+
+tr:not(:first-child) {
+  color: #000;
+}
+
+tr:hover {
+  background-color: #f5f5f5;
+}
+    
+.toc .section-number {
+  display: none;
+}
+
+.summary {
+  color: #000080;
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+}
+</style>
+
+```{r setup, include=FALSE}
+# For solutions
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE,tidy=TRUE)
+show_q = FALSE
+show_s = FALSE
+```
+
+<br>
+
+
+# 1 Overview of the problem {.tabset .tabset-fade .tabset-pills}
+
+## 1.1 Description of the classification problem
+
+<div class = "summary">
+
+ For the project, the data used for analysis was acquired through the Kaggle platform with a licence of CC0 (Paris, 2022). The initial source of the data was a financial company, and the dataset contains 100,000 pieces of customer information including basic customer information such as age, occupation, annual income, number of bank accounts, credit card debt, payment history, and other credit related information.<br>
+<br>
+ The goal is to construct a multi-classification supervised learning model that accurately predicts a customer's credit score category based on various demographic and financial attributes of the customer as " Poor", "Standard" and "Good". Credit score is an important indicator of an individual's creditworthiness and reflects the likelihood that they will default on a loan or credit card payment.<br>
+<br>
+ However, this study had some limitations. First, the data comes from specific financial institutions and may not be fully representative of the whole population. Second, the accuracy of credit scores is affected by a variety of factors, including the period of data collection, regional economic conditions, and industry dynamics, which may not be fully accounted for in the model. In addition, the model may be limited by existing algorithms and data processing techniques, with a certain degree of bias.<br>
+
+</div>
+
+## 1.2 Context and motivation
+
+<div class = "summary">
+ The project aims to provide solutions for accurate credit scoring. From a business perspective, accurately predicting a customer's credit score is critical, for example, to help banks make informed decisions on whether to approve a loan, determine the appropriate interest rate, and manage the overall risk portfolio, which can lead to helping reduce defaults, an enhanced customer experience, and more.
+
+<table> 
+  <tr> 
+    <th>Stakeholder</th> <th>Description</th>
+  </tr> 
+  <tr> 
+    <td>Banks and financial institutions</td> 
+    <td>They are the primary users of the solution, helping them to make lending decisions, manage risk and optimise the profitability of their loan portfolios.</td> 
+  </tr> 
+  <tr>
+    <td>Customers</td> 
+    <td>They are influenced by the model to decide on lending opportunities, and accurate models can avoid high interest rates or loan denials.</td> 
+  </tr> 
+  <tr>
+    <td>Regulators</td>
+    <td>They monitor banking operations to ensure that models are fair and unbiased, protecting consumer rights.</td>
+  </tr>
+  <tr>
+    <td>Investors and shareholders</td>
+    <td>They are concerned about the stability of the organisation's profitability, and the solution helps with risk management.</td>
+  </tr> 
+  <tr>
+    <td>Credit bureaus</td> 
+    <td>They collect personal credit information, which can be used to provide lending institutions with scoring reports.</td> 
+  </tr> 
+  <tr> 
+    <td>Technology providers</td> 
+    <td>They provide related software services from the solution to the successful rollout.</td> 
+  </tr> 
+</table>
+
+</div>
+
+# 2 Dataset description {.tabset .tabset-fade .tabset-pills}
+
+## 2.1 Data overview
+
+<div class = "summary">
+
+ The 'Credit Score Classification' (Paris, R,2022) dataset, created by Rohan Paris, which contains banking credit information of various individuals for building a credit scoring prediction system. The dataset is licensed under CC0: Public Domain. The original dataset comprises 100,000 samples with 28 different attributes. Among these attributes, there are 9 numeric types and 19 categorical types. After data cleaning, the number of numeric-type attributes increased to 22, while the categorical-type attributes decreased to 8. <br>
+
+</div>
+```{r}
+#install.packages("plotly")
+```
+
+
+```{r}
+#| code-summary: "read packages"
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(lattice))
+suppressPackageStartupMessages(library(class))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(zoo))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(visdat))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(pheatmap))
+```
+
+```{r}
+#| code-summary: "load data"
+df <- read.csv("train.csv", stringsAsFactors = F)
+```
+
+```{r}
+#| code-summary: "Visualization for miss value"
+visdat::vis_miss(df, warn_large_data = FALSE)
+
+```
+
+
+
+<div class = "summary">
+
+<table> 
+  <tr> 
+    <th>Variable</th> 
+    <th>Type</th> 
+    <th>Description</th> 
+  </tr> 
+  <tr>
+    <td>ID</td> 
+    <td>Numeric</td>
+    <td>Unique identifier for each record</td> 
+  </tr> 
+  <tr> 
+    <td>Customer_ID</td>
+    <td>Character</td> 
+    <td>Unique identifier for each customer</td>
+  </tr> 
+  <tr> 
+    <td>Month</td>
+    <td>Character</td> 
+    <td>Month of the transaction</td>
+  </tr> 
+  <tr> 
+    <td>Age</td> 
+    <td>Character</td> 
+    <td>Customer's age</td>
+  </tr> 
+  <tr> 
+    <td>Name</td> 
+    <td>Character</td> 
+    <td>Customer name</td>
+  </tr> 
+  <tr> 
+    <td>SSN</td> 
+    <td>Character</td>
+    <td>Customer's Social Security Number</td> 
+  </tr> 
+  <tr> 
+    <td>Occupation</td> 
+    <td>Character</td> 
+    <td>Customer's occupation</td> 
+  </tr> 
+  <tr> 
+    <td>Annual_Income</td>
+    <td>Character</td>
+    <td>Customer's annual income</td> 
+  </tr>
+  <tr> 
+    <td>Monthly_Inhand_Salary</td> 
+    <td>Numeric</td> <td>Customer's monthly in-hand salary</td> 
+  </tr>
+  <tr> 
+    <td>Num_Bank_Accounts</td> 
+    <td>Integer</td> 
+    <td>Number of bank accounts the customer has</td> 
+  </tr> 
+  <tr>
+    <td>Num_Credit_Card</td> 
+    <td>Integer</td> 
+    <td>Number of credit cards the customer has</td> 
+  </tr> 
+  <tr> 
+    <td>Interest_Rate</td> 
+    <td>Integer</td> 
+    <td>Interest rate on customer's credit</td> 
+  </tr> 
+  <tr> 
+    <td>Num_of_Loan</td> 
+    <td>Character</td> 
+    <td>Number of loans the customer has</td> 
+  </tr>
+  <tr> 
+    <td>Type_of_Loan</td> 
+    <td>Character</td> 
+    <td>Types of loans the customer has</td> 
+  </tr> 
+  <tr> 
+    <td>Delay_from_due_date</td> 
+    <td>Integer</td> 
+    <td>Average days customer delays payments from due date</td> 
+  </tr> 
+  <tr> 
+    <td>Num_of_Delayed_Payment</td> 
+    <td>Character</td> 
+    <td>Number of delayed payments the customer has made</td> 
+  </tr> 
+  <tr> 
+    <td>Changed_Credit_Limit</td> 
+    <td>Character</td> 
+    <td>Change in customer's credit limit</td> 
+  </tr> 
+  <tr> 
+    <td>Num_Credit_Inquiries</td> 
+    <td>Numeric</td> 
+    <td>Number of credit inquiries</td> 
+  </tr> 
+  <tr> 
+    <td>Credit_Mix</td> 
+    <td>Character</td> 
+    <td>Customer's mix of credit types</td> 
+  </tr> 
+  <tr> 
+    <td>Outstanding_Debt</td> 
+    <td>Character</td> 
+    <td>Customer's outstanding debt amount</td> 
+  </tr> 
+  <tr> 
+    <td>Credit_Utilization_Ratio</td> 
+    <td>Numeric</td> 
+    <td>Ratio of credit used to total credit limit</td> 
+  </tr> 
+  <tr> 
+    <td>Credit_History_Age</td> 
+    <td>Character</td> 
+    <td>Age of customer's credit history</td> 
+  </tr> 
+  <tr> 
+    <td>Payment_of_Min_Amount</td> 
+    <td>Character</td> 
+    <td>Whether customer paid the minimum amount due</td> 
+  </tr> 
+  <tr> 
+    <td>Total_EMI_per_month</td> 
+    <td>Numeric</td> 
+    <td>Total equated monthly installment per month</td> 
+  </tr> 
+  <tr> 
+    <td>Amount_invested_monthly</td> 
+    <td>Character</td> 
+    <td>Amount invested by the customer monthly</td> 
+  </tr> 
+  <tr> 
+    <td>Payment_Behaviour</td> 
+    <td>Character</td> 
+    <td>Customer's payment behavior</td> 
+  </tr>
+  <tr> 
+    <td>Monthly_Balance</td> 
+    <td>Character</td> 
+    <td>Customer's monthly balance</td> 
+  </tr> 
+  <tr> 
+    <td>Credit_Score</td> 
+    <td>Character</td> 
+    <td>Customer's credit score category</td> 
+  </tr> 
+</table>
+</div>
+
+
+## 2.2 Data quality assessment
+
+<div class = "summary">
+
+1. In the original dataset, there are anomalies, null values, incorrect values, also includes values with format errors. In the dataset, the proportion of null values is relatively small, while anomalies and incorrect values constitute a larger percentage.<br>
+<br>• For rows that contain critically important information and cannot be replaced, we delete the entire row to ensure the accuracy and completeness of the data.
+<br>• For anomalies, null values, and incorrect values that can be understood and computed through other rows or information, we use computation and replacement methods to replace them. This also includes using financial knowledge for analysis and judgment.<br>
+<br>
+2. The dataset is very large and has a wide variety of attributes.<br>
+<br>• We will conduct a thorough analysis of each column to understand the strength of the relationship between each attribute and the outcome. This will help us to selectively and effectively use attributes to improve the predictive performance and efficiency of our model.
+<br>• Given the large volume of data, we will adopt a segmented training strategy, dividing the dataset into multiple subsets for training. This approach allows us to enhance training speed and performance efficiently, reducing the time cost of model training.
+
+<br>
+
+</div>
+
+```{r}
+#| code-summary: "Summary numeric data"
+summary(select_if(df, is.numeric))
+```
+
+
+
+## 2.3 Data preprocessing {.tabset .tabset-fade .tabset-pills}
+
+### 2.3.1 Data Cleaning Summary
+
+<div class = "summary">
+
+<table> 
+  <tr> 
+    <th>Variable</th> 
+    <th>Original type</th> 
+    <th>Anomalies/Null Values/Wrong Format Situation</th> 
+    <th>Processed method</th> 
+    <th>Final type</th> 
+  </tr> 
+  <tr> 
+    <td>ID</td> 
+    <td>Numeric</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Customer_ID</td> 
+    <td>Character</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Character</td> 
+  </tr>
+  <tr> 
+    <td>Month</td> 
+    <td>Character</td> 
+    <td>None</td> 
+    <td>Replace the text with the corresponding number in month</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Name</td> 
+    <td>Character</td> 
+    <td>Null Values</td> 
+    <td>Conjecture and replace null values with Customer_ID</td> 
+    <td>Character</td> 
+  </tr>
+  <tr> 
+    <td>Age => Age_level</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Wrong Format</td> 
+    <td>Keep the values in the 0-90 age range, replace anomalies values with Customer_ID and correct format. And the age is classified into label groups representing different career stages, while the original age column is deleted and renamed as Age_Level</td> 
+    <td>Factor</td> 
+  </tr>
+  <tr> 
+    <td>SSN</td> 
+    <td>Character</td> 
+    <td>Anomalies Values</td> 
+    <td>Conjecture and replace anomalies values with Customer_ID</td> 
+    <td>Character</td> 
+  </tr>
+  <tr> 
+    <td>Occupation</td> 
+    <td>Character</td> 
+    <td>Anomalies Values</td> 
+    <td>Conjecture and replace anomalies values with Customer_ID. Then label the occupational classification based on occupational stability</td> 
+    <td>Factor</td> 
+  </tr>
+  <tr> 
+    <td>Annual_Income</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Wrong Format</td> 
+  <td>Keep the values smaller than 180k, replace anomalies values with Customer_ID and correct format,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Monthly_Inhand_Salary</td> 
+    <td>Numeric</td> 
+    <td>Null Values</td> 
+    <td>Conjecture and replace null values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Num_Bank_Accounts</td> 
+    <td>Integer</td> 
+    <td>Anomalies Values</td> 
+ <td>Keep the values smaller than 12 and not -1, replace anomalies values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Num_Credit_Card</td> 
+    <td>Integer</td> 
+    <td>Anomalies Values</td> 
+    <td>Keep the values smaller than 12, replace anomalies values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Interest_Rate</td> 
+    <td>Integer</td> 
+    <td>Anomalies Values</td> 
+    <td>Keep the values smaller than 35, replace anomalies values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Num_of_Loan</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Null Values</td> 
+    <td>Query the specific amount of Type_of_Loan and fill in the null value</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Type_of_Loan (Deleted)</td> 
+    <td>Character</td> 
+    <td>None</td> 
+    <td>By classifying the 9 loan types in the loan dataset into 6 broad loan categories, and using 0 and 1 to indicate the presence or absence of each category. and delete this column.</td> 
+    <td>None</td> 
+  </tr>
+  <tr> 
+    <td>Credit Building (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Housing (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Unspecified (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Personal Consumption (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Education (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Debt Consolidation (Type_of_Loan)</td> 
+    <td>None</td> 
+    <td>None</td> 
+    <td>Create by Type_of_Loanin data cleaning</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Delay_from_due_date</td> 
+    <td>Integer</td> 
+    <td>None</td> 
+    <td>Change data type,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Num_of_Delayed_Payment</td> 
+    <td>Character</td> 
+    <td>Anomalies Values</td> 
+    <td>Keep the values in the 0-29 age range, replace anomalies values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Changed_Credit_Limit</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Wrong Format</td> 
+    <td>Change the format and delete the sample where the null value resides,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Num_Credit_Inquiries</td> 
+    <td>Numeric</td> 
+    <td>Anomalies Values</td> 
+    <td>Keep the values smaller than 18, replace anomalies values with Customer_ID,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Credit_Mix</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Wrong Format</td> 
+    <td>Conjecture and replace null values with Customer_ID, and assign a numerical value to each credit mix type</td> 
+    <td>Factor</td> 
+  </tr>
+  <tr> 
+    <td>Outstanding_Debt</td> 
+    <td>Character</td> 
+    <td>Wrong Format</td> 
+    <td>Change the format and data type,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Credit_Utilization_Ratio</td> 
+    <td>Numeric</td> 
+    <td>None</td> 
+    <td>Use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Credit_History_Age</td> 
+    <td>Character</td> 
+    <td>Null values</td> 
+    <td>Clean the data and convert to calculate the total number of months. The missing values are populated by grouping and sorting by customer ID. And repopulate the data content in years</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Payment_of_Min_Amount</td> 
+    <td>Character</td> 
+    <td>Null values and Anomalies values</td> 
+    <td>Conjecture and replace null values and anomalies values with Customer_ID. Then convert the column into ordered factors, where "No" and "Yes" are labeled 0 and 1 respectively</td> 
+    <td>Factor</td> 
+  </tr>
+  <tr> 
+    <td>Total_EMI_per_month</td> 
+    <td>Numeric</td> 
+    <td>Anomalies Values</td> 
+    <td>Anomalies values is removed after calculating the quartile and interquartile distance,use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Amount_invested_monthly</td> 
+    <td>Character</td> 
+    <td>Anomalies Values</td> 
+    <td>Conjecture and replace null values and anomalies values, use the IQR method to clean outliers</td> 
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Payment_Behaviour</td> 
+    <td>Character</td> 
+    <td>Null values and Anomalies Values</td> 
+    <td>Conjecture and replace null values with Customer_ID</td> 
+    <td>Factor</td> 
+  </tr>
+  <tr> 
+    <td>Monthly_Balance</td> 
+    <td>Character</td> 
+    <td>Anomalies Values and Null Values</td> 
+    <td>Deletes rows with anomalies and other null values,use the IQR method to clean outliers</td>
+    <td>Numeric</td> 
+  </tr>
+  <tr> 
+    <td>Credit_Score</td> 
+    <td>Character</td> 
+    <td>None</td> 
+    <td>Assign a numerical value to each credit score type</td> 
+    <td>Factor</td> 
+  </tr> 
+</table>
+</div>
+
+
+
+### 2.3.2 Detailed Data Cleaning Steps {.tabset .tabset-fade .tabset-pills}
+
+```{r}
+#| code-summary: "set value for mode or random function"
+getmode <- function(v) {
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+
+#### 2.3.2.1 ID
+
+ ID is a hexadecimal type for each record, with a Numeric type. This column contains no anomalies or null values and will be retained without any preprocessing.
+
+
+#### 2.3.2.2 Customer_ID
+
+ Customer_ID records the ID of each customer, with a Character type. This column contains no anomalies or null values and will be retained without any preprocessing.
+
+
+#### 2.3.2.3 Month
+
+ Month records the month information of the record, with a Character type. This column contains no anomalies or null values. It will be retained, converting months from text to numeric form. For example: January => '1', February => '2'. Ultimately, this column's type becomes Numeric.
+
+```{r}
+#| code-summary: "data cleaning for Month"
+df$Month <- match(df$Month, month.name)
+```
+
+```{r}
+
+ggplot(df, aes(x = Month)) +
+  geom_bar(fill = "grey", stat = "count") +
+  scale_x_continuous(breaks = 1:12, labels = month.name) +
+  theme_minimal() +
+  labs(title = "Frequency of Months", x = "Month", y = "Count") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.4 Name
+
+ Name stores customer name information for each record, with a Character type. This column contains many null values, so it will be grouped by Customer_ID. This allows the prediction of customer names through Customer_ID to replace null values.
+
+
+```{r}
+#| code-summary: "data cleaning for Name"
+df <- df %>%
+  mutate(Name = ifelse(Name == '', NA, Name)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Name = coalesce(Name, getmode(Name[!is.na(Name)]))) %>%
+  ungroup()
+```
+
+
+#### 2.3.2.5 Age
+
+ Age records the age of the customer, with a Character type. It contains many anomalies and incorrectly formatted values. Only ages between 0 and 90 will be retained, with the rest deemed as anomalies. By grouping by Customer_ID, it's possible to deduce the mode of customers' ages and replace null and anomalous values. The code divides age into four label groups representing different career stages and assigns these labels to the new Age_Level column. The original Age column is removed from the data frame. Ultimately, this column's type becomes Factor.
+
+
+```{r}
+#| code-summary: "data cleaning for Age"
+df <- df %>%
+  mutate(Age = gsub("_", "", Age),
+         Age = as.numeric(Age)) %>% 
+  mutate(Age = ifelse(Age == '' | Age > 90 | Age < 0, NA, Age)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Age = coalesce(Age, getmode(Age[!is.na(Age)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "Labeling for Age"
+
+#"Career Budding", "Career Development", "Career Maturity", "Career Decline"
+df <- df %>%
+  mutate(Age_Level = factor(case_when(
+    Age <= 24 ~ 0,
+    Age >= 25 & Age <= 34 ~ 1,
+    Age >= 35 & Age <= 49 ~ 2,
+    Age >= 50 ~ 3
+  ), levels = 0:3)) %>% 
+  select(-Age)
+```
+
+```{r}
+#| code-summary: "Visualization for Age"
+age_plot <- df %>%
+  count(Age_Level) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = "", y = prop, fill = Age_Level)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Age Levels",
+       x = "Age Level", y = "Proportion") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.title = element_blank(),
+        legend.position = "bottom")
+age_plot
+```
+
+
+#### 2.3.2.6 SSN
+
+ SSN is the customer's Social Security Number, with a Character type. It contains many anomalies. By grouping by Customer_ID, it's possible to deduce the customer's SSN and replace anomalous values.
+
+
+```{r}
+#| code-summary: "data cleaning for SSN"
+df <- df %>%
+  mutate(SSN = ifelse(SSN == '#F%$D@*&8', NA, SSN)) %>%
+  group_by(Customer_ID) %>%
+  mutate(SSN = coalesce(SSN, getmode(SSN[!is.na(SSN)]))) %>%
+  ungroup()
+```
+
+#### 2.3.2.7 Occupation
+
+ Occupation is the customer's occupation, with a Character type. It contains many anomalies. By grouping by Customer_ID, it's possible to deduce the mode of customers' occupations and replace anomalous values. Next, define occupation_stability, which maps different occupations to numerical labels based on their stability (2 means high stability, 1 means medium stability, and 0 means low stability).Ultimately, this column's type becomes Factor.
+
+
+```{r}
+#| code-summary: "data cleaning for Occupation"
+df <- df %>%
+  mutate(Occupation = ifelse(Occupation == '_______', NA, Occupation)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Occupation = coalesce(Occupation, getmode(Occupation[!is.na(Occupation)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "Labeling for Occupation"
+occupation_stability <- c(
+  "Lawyer" = 2, "Doctor" = 2, "Accountant" = 2, "Teacher" = 2, "Engineer" = 2,
+  "Media_Manager" = 1, "Journalist" = 1, "Manager" = 1, "Scientist" = 1, "Architect" = 1, "Developer" = 1,
+  "Entrepreneur" = 0, "Writer" = 0, "Musician" = 0, "Mechanic" = 0
+)
+df$Occupation <- occupation_stability[df$Occupation]
+df$Occupation <- factor(df$Occupation)
+invisible(levels(df$Occupation))
+```
+
+```{r}
+#| code-summary: "Visualization for Occupation"
+#| 
+df %>%
+    count(Occupation) %>%
+    mutate(prop = n / sum(n)) %>%
+    ggplot(aes(x = "", y = prop, fill = Occupation)) +
+    geom_bar(stat = "identity", width = 1, color = "white") +
+    coord_polar("y", start = 0) +
+    labs(title = "Distribution of Occupation Stability",
+         x = "Occupation Stability Level", y = "Proportion") +
+    theme_void() +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+#### 2.3.2.8 Annual_Income
+
+ Annual_Income is the customer's annual income, with a Character type. Therefore, it's necessary to format the data, retaining two decimal places and removing underscores ('_') as an initial process. With many anomalies present, an anomaly threshold is determined by the frequency of anomalous and normal values, set at 180k. Values above this threshold are deemed anomalous. By grouping by Customer_ID, it's possible to deduce the customer's annual income and replace anomalous values. An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Annual_Income"
+df <- df %>%
+  mutate(Annual_Income = gsub("_", "", Annual_Income),
+         Annual_Income = as.numeric(Annual_Income)) %>% 
+  mutate(Annual_Income = ifelse(Annual_Income == '', NA, Annual_Income)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Annual_Income = coalesce(Annual_Income, getmode(Annual_Income[!is.na(Annual_Income)]))) %>%
+  ungroup() %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+
+
+
+
+# By querying outlier and normal value occurrence times
+# Find the outlier limit of the Interest_Rate outlier limit. It is found that all outliers above 18w (including 18w) are outliers.
+
+count_high_Annual_Income <- df %>%
+  filter(Annual_Income >= 180000) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Annual_Income = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Annual_Income <- left_join(count, count_high_Annual_Income, by = "Customer_ID")
+
+combined_df_Annual_Income
+
+# Will be higher than 18w(including 18w) according to Customer_ID unified
+df <- df %>%
+  mutate(Annual_Income = ifelse(Annual_Income == '' | Annual_Income >= 180000, NA, Annual_Income)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Annual_Income = coalesce(Annual_Income, getmode(Annual_Income[!is.na(Annual_Income)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "boxplot for Annual_Income"
+ggplot(df, aes(y = Annual_Income)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Annual Income", y = "Annual Income") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Annual_Income"
+
+Q1.AI <- quantile(df$Annual_Income, 0.25)
+Q3.AI <- quantile(df$Annual_Income, 0.75)
+IQR.AI <- IQR(df$Annual_Income)
+
+lower.AI <- Q1.AI - 1.5 * IQR.AI
+upper.AI <- Q3.AI + 1.5 * IQR.AI
+
+df <- subset(df, Annual_Income >= lower.AI & Annual_Income <= upper.AI)
+```
+
+```{r}
+#| code-summary: "Visualization for Annual_Income"
+ggplot(df, aes(x = Annual_Income)) + 
+  geom_histogram(binwidth = 2000, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Annual Income",
+       x = "Annual Income",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+
+#### 2.3.2.9 Monthly_Inhand_Salary
+
+ Monthly_Inhand_Salary is the customer's monthly in-hand salary, with a Numeric type. This column contains many null values, so it will be grouped by Customer_ID. This allows the prediction of customers' monthly in-hand salary through Customer_ID to replace null values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.
+
+```{r}
+#| code-summary: "data cleaning for Monthly_Inhand_Salary"
+# Unify null values based on Customer_ID
+df <- df %>%
+  mutate(Monthly_Inhand_Salary = ifelse(Monthly_Inhand_Salary == '', NA, Monthly_Inhand_Salary)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Monthly_Inhand_Salary = coalesce(Monthly_Inhand_Salary, getmode(Monthly_Inhand_Salary[!is.na(Monthly_Inhand_Salary)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "boxplot for Monthly_Inhand_Salary"
+ggplot(df, aes(y = Monthly_Inhand_Salary)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Monthly Inhand Salary", y = "Monthly Inhand Salary") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+#| code-summary: "Data cleaning for Monthly_Inhand_Salary"
+
+Q1.MIS <- quantile(df$Monthly_Inhand_Salary, 0.25)
+Q3.MIS <- quantile(df$Monthly_Inhand_Salary, 0.75)
+IQR.MIS <- IQR(df$Monthly_Inhand_Salary)
+
+lower.MIS <- Q1.MIS - 1.5 * IQR.MIS
+upper.MIS <- Q3.MIS + 1.5 * IQR.MIS
+
+df <- subset(df, Monthly_Inhand_Salary >= lower.MIS & Monthly_Inhand_Salary <= upper.MIS)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Monthly_Inhand_Salary"
+ggplot(df, aes(x = Monthly_Inhand_Salary)) + 
+  geom_histogram(binwidth = 200, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Monthly Inhand Salary",
+       x = "Monthly Inhand Salary",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+
+```
+
+#### 2.3.2.10 Num_Bank_Accounts
+
+ Num_Bank_Accounts represents the number of bank accounts a customer holds, with an Integer type. Due to many anomalies, a threshold for anomalies is determined by the frequency of anomalous and normal values, with values larger and equal than 12 and -1 deemed anomalous. Values outside this range are considered anomalous. By grouping by Customer_ID, it's possible to deduce the number of bank accounts a customer holds and replace anomalous values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Num_Bank_Accounts"
+
+# By querying outlier and normal value occurrence times
+# Find outlier bounds for Num_Bank_Accounts. It is found that all outliers above 12 (including 12) and -1 are outliers.
+count_high_Num_Bank_Accounts <- df %>%
+  filter(Num_Bank_Accounts >= 12) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_Bank_Accounts = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_Bank_Accounts <- left_join(count, count_high_Num_Bank_Accounts, by = "Customer_ID")
+
+invisible(combined_df_Num_Bank_Accounts)
+
+# will be higher than 12 (including 12) and lower than 0 according to the Customer_ID unified
+df <- df %>%
+  mutate(Num_Bank_Accounts = ifelse(Num_Bank_Accounts == '' | Num_Bank_Accounts >= 12 | Num_Bank_Accounts < 0, NA, Num_Bank_Accounts)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Bank_Accounts = coalesce(Num_Bank_Accounts, getmode(Num_Bank_Accounts[!is.na(Num_Bank_Accounts)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "boxplot for Num_Bank_Accounts"
+ggplot(df, aes(y = Num_Bank_Accounts)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Number of Bank Accounts", y = "Number of Bank Accounts") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Num_Bank_Accounts"
+
+Q1.NBA <- quantile(df$Num_Bank_Accounts, 0.25)
+Q3.NBA <- quantile(df$Num_Bank_Accounts, 0.75)
+IQR.NBA <- IQR(df$Num_Bank_Accounts)
+
+lower.NBA <- Q1.NBA - 1.5 * IQR.NBA
+upper.NBA <- Q3.NBA + 1.5 * IQR.NBA
+
+df <- subset(df, Num_Bank_Accounts >= lower.NBA & Num_Bank_Accounts <= upper.NBA)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Num_Bank_Accounts"
+
+ggplot(df, aes(x = Num_Bank_Accounts)) + 
+  geom_histogram(binwidth = 1, fill = "grey") +
+  scale_x_continuous(breaks = 0:10) +  
+  labs(title = "Distribution of Number of Bank Accounts",
+       x = "Number of Bank Accounts",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+
+#### 2.3.2.11 Num_Credit_Card
+
+ Num_Credit_Card represents the number of credit cards a customer holds, with an Integer type. Due to many anomalies, a threshold for anomalies is determined by the frequency of anomalous and normal values, with values larger and equal than 12 considered anomalous. By grouping by Customer_ID, it's possible to deduce the number of credit cards a customer holds and replace anomalous values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Num_Credit_Card"
+
+
+count_high_credit_card <- df %>%
+  filter(Num_Credit_Card >= 12) %>%
+  group_by(Customer_ID) %>%
+  summarise(Count_High_Credit_Card = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_credit_card <- left_join(count, count_high_credit_card, by = "Customer_ID")
+
+combined_df_credit_card
+
+df <- df %>%
+  mutate(Num_Credit_Card = ifelse(Num_Credit_Card == '' | Num_Credit_Card >= 12, NA, Num_Credit_Card)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Credit_Card = coalesce(Num_Credit_Card, getmode(Num_Credit_Card[!is.na(Num_Credit_Card)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "boxplot for Num_Credit_Card"
+ggplot(df, aes(y = Num_Credit_Card)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Number of Credit Cards", y = "Number of Credit Cards") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+#| code-summary: "Data cleaning for Num_Credit_Card"
+
+Q1.NCC <- quantile(df$Num_Credit_Card, 0.25)
+Q3.NCC <- quantile(df$Num_Credit_Card, 0.75)
+IQR.NCC <- IQR(df$Num_Credit_Card)
+
+lower.NCC <- Q1.NCC - 1.5 * IQR.NCC
+upper.NCC <- Q3.NCC + 1.5 * IQR.NCC
+
+df <- subset(df, Num_Credit_Card >= lower.NCC & Num_Credit_Card <= upper.NCC)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Num_Credit_Card"
+ggplot(df, aes(x = Num_Credit_Card)) + 
+  geom_histogram(binwidth = 1, fill = "grey") +
+  labs(title = "Distribution of Number of Credit Cards",
+       x = "Number of Credit Cards",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.12 Interest_Rate
+
+ Interest_Rate is the interest rate on a customer's credit, with an Integer type. Due to many anomalies, a threshold for anomalies is determined by the frequency of anomalous and normal values, with values larger and equal than 35 considered anomalous. By grouping by Customer_ID, it's possible to deduce the interest rate on a customer's credit and replace anomalous values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+```{r}
+#| code-summary: "data cleaning for Interest_Rate"
+
+
+
+count_high_Interest_Rate <- df %>%
+  filter(Interest_Rate >= 35) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Interest_Rate = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Interest_Rate <- left_join(count, count_high_Interest_Rate, by = "Customer_ID")
+
+combined_df_Interest_Rate
+
+df <- df %>%
+  mutate(Interest_Rate = ifelse(Interest_Rate == '' | Interest_Rate >= 35, NA, Interest_Rate)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Interest_Rate = coalesce(Interest_Rate, getmode(Interest_Rate[!is.na(Interest_Rate)]))) %>%
+  ungroup()
+```
+
+```{r}
+#| code-summary: "boxplot for Interest_Rate"
+ggplot(df, aes(y = Interest_Rate)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Interest Rate", y = "Interest Rate") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Interest_Rate"
+
+Q1.IR <- quantile(df$Interest_Rate, 0.25)
+Q3.IR <- quantile(df$Interest_Rate, 0.75)
+IQR.IR <- IQR(df$Interest_Rate)
+
+lower.IR <- Q1.IR - 1.5 * IQR.IR
+upper.IR <- Q3.IR + 1.5 * IQR.IR
+
+df <- subset(df, Interest_Rate >= lower.IR & Interest_Rate <= upper.IR)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Interest_Rate"
+ggplot(df, aes(x = Interest_Rate)) + 
+  geom_histogram(binwidth = 0.5, fill = "grey") +
+  labs(title = "Distribution of Interest Rate",
+       x = "Interest Rate",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.13 Num_of_Loan
+
+ Num_of_Loan represents the total number of loans a customer holds, with a Character type. The actual number of loans is determined by counting commas; if there are no commas, the value is 1, if there are n commas, the value is n+1, and null values are considered 0. Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Num_of_Loan"
+
+df <- df %>%
+  mutate(Num_of_Loan = ifelse(Type_of_Loan == '', 0, 
+                              ifelse(str_detect(Type_of_Loan, ','), 
+                                     str_count(Type_of_Loan, ',') + 1,
+                                     1)))
+```
+
+
+#### 2.3.2.14 Type_of_Loan
+
+ Type_of_Loan records the different types of loans a customer holds, with a Character type. This column contains no anomalies or null values. 9 specific loan types are defined into 6 broader loan categories by mapping, and a new column is created for each loan category. A value of 1 indicates the presence of a loan in that category, and 0 indicates its absence. The original Type_of_Loan column is ultimately removed after transforming it into the broader loan categories and recording its data in a long format.
+
+
+```{r}
+# Find the unique Type_of_Loan (9 types)
+df_loans <- df %>%
+  separate_rows(Type_of_Loan, sep = ", and |, ") %>%
+  mutate(Type_of_Loan = trimws(Type_of_Loan)) %>%
+  filter(Type_of_Loan != '')
+unique(df_loans$Type_of_Loan)
+```
+
+```{r}
+ggplot(data = df_loans) +
+  geom_bar(aes(x = Type_of_Loan), fill = "grey") +
+  labs(title = "Type of Loan Distribution",
+       x = "Type of Loan",
+       y = "Count") +
+   theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+loan_type_categories <- c(
+  "Credit-Builder Loan" = "Credit Building",
+  "Home Equity Loan" = "Housing",
+  "Not Specified" = "Unspecified",
+  "Payday Loan" = "Personal Consumption",
+  "Student Loan" = "Education",
+  "Debt Consolidation Loan" = "Debt Consolidation",
+  "Personal Loan" = "Personal Consumption",
+  "Auto Loan" = "Personal Consumption",
+  "Mortgage Loan" = "Housing"
+)
+df <- df %>%
+  mutate(Credit_Building = as.integer(grepl("Credit-Builder Loan", Type_of_Loan)),
+         Housing = as.integer(grepl("Home Equity Loan|Mortgage Loan", Type_of_Loan)),
+         Unspecified = as.integer(grepl("Not Specified", Type_of_Loan)),
+         Personal_Consumption = as.integer(grepl("Payday Loan|Personal Loan|Auto Loan", Type_of_Loan)),
+         Education = as.integer(grepl("Student Loan", Type_of_Loan)),
+         Debt_Consolidation = as.integer(grepl("Debt Consolidation Loan", Type_of_Loan))) %>%
+  select(-Type_of_Loan)
+```
+
+```{r}
+loan.categories <- df %>%
+  select(Credit_Building, Housing, Unspecified, Personal_Consumption, Education, Debt_Consolidation) %>%
+  pivot_longer(cols = everything(), names_to = "Loan_Category", values_to = "Value") %>%
+  group_by(Loan_Category, Value) %>%
+  summarise(Count = n(), .groups = "drop")
+
+ggplot(data = loan.categories, aes(x = factor(Value), y = Count, fill = factor(Value))) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Loan_Category, scales = "free_x") +
+  labs(title = "Loan Category Distribution",
+       x = "Value",
+       y = "Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5),
+        legend.position = "none")
+```
+
+#### 2.3.2.15 Delay_from_due_date
+
+ Delay_from_due_date records the delay in repayment time for each customer, with an Integer type. This column contains no anomalies or null values, will be retained, and changed to a Numeric type.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Delay_from_due_date"
+
+# numeric
+df <- df %>%
+  mutate(Delay_from_due_date = as.numeric(Delay_from_due_date))
+  
+```
+
+```{r}
+#| code-summary: "boxplot for Delay_from_due_date"
+ggplot(df, aes(y = Delay_from_due_date)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Delay from Due Date", y = "Delay from Due Date") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Delay_from_due_date"
+
+Q1.DDD <- quantile(df$Delay_from_due_date, 0.25)
+Q3.DDD <- quantile(df$Delay_from_due_date, 0.75)
+IQR.DDD <- IQR(df$Delay_from_due_date)
+
+lower.DDD <- Q1.DDD - 1.5 * IQR.DDD
+upper.DDD <- Q3.DDD + 1.5 * IQR.DDD
+
+df <- subset(df, Delay_from_due_date >= lower.DDD & Delay_from_due_date <= upper.DDD)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Delay_from_due_date"
+ggplot(df, aes(x = Delay_from_due_date)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Delay from Due Date",
+       x = "Delay from Due Date",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.16 Num_of_Delayed_Payment
+
+ Num_of_Delayed_Payment is the number of times a customer has made a delayed payment, with a Character type. Due to many anomalies, a threshold for anomalies is determined by the frequency of anomalous and normal values, with values in range 0-29 considered anomalies. By grouping by Customer_ID, it's possible to deduce the number of delayed payments a customer has made and replace anomalous values. An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. Ultimately, this column's type becomes Numeric.
+
+
+```{r} 
+#| code-summary: "data cleaning for Num_of_Delayed_Payment"
+
+# By querying outlier and normal value occurrence times
+# Find the outlier bounds for Num_of_Delayed_Payment's outlier bounds. It is found that outliers above 29 (including 29) and below 0 are outliers.
+
+count_high_Num_of_Delayed_Payment <- df %>%
+  filter(Num_of_Delayed_Payment >= 29) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_of_Delayed_Payment = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_of_Delayed_Payment <- left_join(count, count_high_Num_of_Delayed_Payment, by = "Customer_ID")
+
+combined_df_Num_of_Delayed_Payment
+
+# Unify values above 29(including 29) and below 0 according to Customer_ID, and delete underscores,
+df <- df %>%
+  mutate(Num_of_Delayed_Payment = gsub("_", "", Num_of_Delayed_Payment),
+         Num_of_Delayed_Payment = as.numeric(Num_of_Delayed_Payment), 
+         Num_of_Delayed_Payment = ifelse(Num_of_Delayed_Payment == '' | Num_of_Delayed_Payment >= 29 | Num_of_Delayed_Payment < 0, NA, Num_of_Delayed_Payment)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_of_Delayed_Payment = coalesce(Num_of_Delayed_Payment, getmode(Num_of_Delayed_Payment[!is.na(Num_of_Delayed_Payment)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Num_of_Delayed_Payment))
+```
+
+```{r}
+#| code-summary: "boxplot for Num_of_Delayed_Payment"
+ggplot(df, aes(y = Num_of_Delayed_Payment)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Number of Delayed Payments", y = "Number of Delayed Payments") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Num_of_Delayed_Payment"
+
+Q1.NDP <- quantile(df$Num_of_Delayed_Payment, 0.25)
+Q3.NDP <- quantile(df$Num_of_Delayed_Payment, 0.75)
+IQR.NDP <- IQR(df$Num_of_Delayed_Payment)
+
+lower.NDP <- Q1.NDP - 1.5 * IQR.NDP
+upper.NDP <- Q3.NDP + 1.5 * IQR.NDP
+
+df <- subset(df, Num_of_Delayed_Payment >= lower.NDP & Num_of_Delayed_Payment <= upper.NDP)
+
+```
+
+
+```{r}
+#| code-summary: "Visualization for Num_of_Delayed_Payment"
+ggplot(df, aes(x = Num_of_Delayed_Payment)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Number of Delayed Payments",
+       x = "Number of Delayed Payments",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+
+#### 2.4.2.17 Changed_Credit_Limit
+
+ Changed_Credit_Limit is the change in a customer's credit limit, with a Character type. It contains many anomalies and incorrectly formatted values. Remove underscores ('_') from the values and delete all samples where this column is null.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Changed_Credit_Limit"
+
+# Delete the '_' after the value, then delete all empty lines
+df <- df %>%
+  mutate(Changed_Credit_Limit = gsub("_", "", Changed_Credit_Limit)) %>%
+  mutate(Changed_Credit_Limit = as.numeric(Changed_Credit_Limit)) %>% 
+  drop_na(Changed_Credit_Limit) %>%
+  mutate(across(where(is.numeric), ~ round(., 2)))
+```
+
+```{r}
+#| code-summary: "boxplot for Changed_Credit_Limit"
+ggplot(df, aes(y = Changed_Credit_Limit)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Changed Credit Limit", y = "Changed Credit Limit") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Changed_Credit_Limit"
+
+Q1.CCL <- quantile(df$Changed_Credit_Limit, 0.25)
+Q3.CCL <- quantile(df$Changed_Credit_Limit, 0.75)
+IQR.CCL <- IQR(df$Changed_Credit_Limit)
+
+lower.CCL <- Q1.CCL - 1.5 * IQR.CCL
+upper.CCL <- Q3.CCL + 1.5 * IQR.CCL
+
+df <- subset(df, Changed_Credit_Limit >= lower.CCL & Changed_Credit_Limit <= upper.CCL)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Changed_Credit_Limit"
+ggplot(df, aes(x = Changed_Credit_Limit)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Changed Credit Limit",
+       x = "Changed Credit Limit",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.4.2.18 Num_Credit_Inquiries
+
+ Num_Credit_Inquiries is the number of credit inquiries for a customer, with a Numeric type. Due to many anomalies, a threshold for anomalies is determined by the frequency of anomalous and normal values, with values ≥18 considered anomalous. By grouping by Customer_ID, it's possible to deduce the number of credit inquiries a customer has and replace anomalous values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. 
+
+
+```{r}
+#| code-summary: "data cleaning for Num_Credit_Inquiries"
+
+# By querying outlier and normal value occurrence times
+# Find outlier bounds for Num_Credit_Inquiries outlier bounds. All outliers above 18 (including 18) are found to be outliers.
+
+count_high_Num_Credit_Inquiries <- df %>%
+  filter(Num_Credit_Inquiries >= 18) %>%
+  group_by(Customer_ID) %>%
+  summarise(count_high_Num_Credit_Inquiries = n())
+
+count <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(count = n())
+
+combined_df_Num_Credit_Inquiries <- left_join(count, count_high_Num_Credit_Inquiries, by = "Customer_ID")
+
+invisible(combined_df_Num_Credit_Inquiries)
+
+# But since 18 counts is too small, I locate 32 counts including (32) as outliers.
+# Will be higher than 32(including 32) based on Customer_ID unified
+df <- df %>%
+  mutate(Num_Credit_Inquiries = ifelse(Num_Credit_Inquiries == '' | Num_Credit_Inquiries >= 32, NA, Num_Credit_Inquiries)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Num_Credit_Inquiries = coalesce(Num_Credit_Inquiries, getmode(Num_Credit_Inquiries[!is.na(Num_Credit_Inquiries)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Num_Credit_Inquiries))
+```
+
+```{r}
+#| code-summary: "boxplot for Num_Credit_Inquiries"
+ggplot(df, aes(y = Num_Credit_Inquiries)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Number of Credit Inquiries", y = "Number of Credit Inquiries") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Num_Credit_Inquiries"
+
+Q1.NCI <- quantile(df$Num_Credit_Inquiries, 0.25)
+Q3.NCI <- quantile(df$Num_Credit_Inquiries, 0.75)
+IQR.NCI <- IQR(df$Num_Credit_Inquiries)
+
+lower.NCI <- Q1.NCI - 1.5 * IQR.NCI
+upper.NCI <- Q3.NCI + 1.5 * IQR.NCI
+
+df <- subset(df, Num_Credit_Inquiries >= lower.NCI & Num_Credit_Inquiries <= upper.NCI)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Num_Credit_Inquiries"
+ggplot(df, aes(x = Num_Credit_Inquiries)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Number of Credit Inquiries",
+       x = "Number of Credit Inquiries",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.19 Credit_Mix
+
+ Credit_Mix is a classification data about the customer's credit mix, with a Character type. It contains many anomalies and incorrectly formatted values. Convert values with underscores ('_') after the number to NA, and by grouping by Customer_ID, it's possible to deduce the credit type of a customer at other times and replace NA values with the mode. The type of this column does not change. The Credit_Mix column is converted into an ordered factor, where "Bad", "Standard", and "Good" are mapped to the values 0, 1, and 2. Indicates the quality of the credit mix from low to high. Ultimately, this column's type becomes Factor.
+
+
+```{r}
+#| code-summary: "data cleaning for Credit_Mix"
+
+# Credit_Mix
+df <- df %>%
+  mutate(Credit_Mix = ifelse(Credit_Mix == '_', NA, Credit_Mix)) %>%
+  group_by(Customer_ID) %>%
+  mutate(Credit_Mix = coalesce(Credit_Mix, getmode(Credit_Mix[!is.na(Credit_Mix)]))) %>%
+  ungroup() %>%
+  filter(!is.na(Credit_Mix))
+```
+
+```{r}
+unique(df$Credit_Mix)
+```
+
+```{r}
+#| code-summary: "Labeling for Credit_Mix"
+df$Credit_Mix <- factor(df$Credit_Mix, levels = c("Bad", "Standard", "Good"), labels = c(0, 1, 2), ordered = TRUE)
+invisible(levels(df$Credit_Mix))
+```
+
+```{r}
+#| code-summary: "Visualization for Credit_Mix"
+
+df %>%
+  count(Credit_Mix) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = "", y = prop, fill = Credit_Mix)) +
+  geom_bar(stat = "identity",width = 1,  color = "white") +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Credit Mix",
+       x = "Credit Mix",
+       y = "Proportion") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+#### 2.3.2.20 Outstanding_Debt
+
+ Outstanding_Debt records the amount of outstanding debt for a customer, with a Character type. First, remove underscore characters ('_') from the text.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Outstanding_Debt"
+
+# Outstanding_Debt
+df$Outstanding_Debt <- gsub("_", "", df$Outstanding_Debt)
+df$Outstanding_Debt <- as.numeric(df$Outstanding_Debt)
+```
+
+```{r}
+#| code-summary: "boxplot for Outstanding_Debt"
+ggplot(df, aes(y = Outstanding_Debt)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Outstanding Debt", y = "Outstanding Debt") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Outstanding_Debt"
+
+Q1.OD <- quantile(df$Outstanding_Debt, 0.25)
+Q3.OD <- quantile(df$Outstanding_Debt, 0.75)
+IQR.OD <- IQR(df$Outstanding_Debt)
+
+lower.OD <- Q1.OD - 1.5 * IQR.OD
+upper.OD <- Q3.OD + 1.5 * IQR.OD
+
+df <- subset(df, Outstanding_Debt >= lower.OD & Outstanding_Debt <= upper.OD)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Outstanding_Debt"
+ggplot(df, aes(x = Outstanding_Debt)) + 
+  geom_histogram(binwidth = 500, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Outstanding Debt",
+       x = "Outstanding Debt",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.21 Credit_Utilization_Ratio
+
+ Credit_Utilization_Ratio records the ratio of credit used to the total credit limit, with a Numeric type. This column contains no anomalies or null values and will be retained without any preprocessing.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. 
+
+
+```{r}
+#| code-summary: "data cleaning for Credit_Utilization_Ratio"
+
+summary(df$Credit_Utilization_Ratio) # Max.50
+```
+
+```{r}
+#| code-summary: "boxplot for Credit_Utilization_Ratio"
+ggplot(df, aes(y = Credit_Utilization_Ratio)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Credit Utilization Ratio", y = "Credit Utilization Ratio") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Credit_Utilization_Ratio"
+
+Q1.CUR <- quantile(df$Credit_Utilization_Ratio, 0.25)
+Q3.CUR <- quantile(df$Credit_Utilization_Ratio, 0.75)
+IQR.CUR <- IQR(df$Credit_Utilization_Ratio)
+
+lower.CUR <- Q1.CUR - 1.5 * IQR.CUR
+upper.CUR <- Q3.CUR + 1.5 * IQR.CUR
+
+df <- subset(df, Credit_Utilization_Ratio >= lower.CUR & Credit_Utilization_Ratio <= upper.CUR)
+
+```
+
+```{r}
+#| code-summary: "Visualization for Credit_Utilization_Ratio"
+ggplot(df, aes(x = Credit_Utilization_Ratio)) + 
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Credit Utilization Ratio",
+       x = "Credit Utilization Ratio",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.22 Credit_History_Age
+
+ Credit_History_Age records the age of the customer's credit history, with a Character type. Initially, use multiple gsub functions to remove specific characters from the text and calculate the total months stored in a new column, Credit_History_Age_Months. Then, group and sort by Customer_ID to ensure correct filling of missing values. If all values are missing (NA), keep unchanged. If the first value is missing, fill it with the first non-missing value in the group. If the last value is missing, fill it with the last non-missing value in the group. Use the na.locf function to fill missing values, keeping the sequence of non-missing values within the group unchanged. And, fill this column with 'year' as the unit. Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "data cleaning for Credit_History_Age"
+
+df <- df %>%
+  mutate(Credit_History_Age = gsub("Years and ", "", Credit_History_Age),
+         Credit_History_Age = gsub("Months", "", Credit_History_Age),
+         Credit_History_Age = gsub("Month", "", Credit_History_Age),
+         Credit_History_Age = gsub("\\[\\s+\\]", " ", trimws(Credit_History_Age)),
+         Credit_History_Age_Months = as.numeric(sub("\\s.*", "", Credit_History_Age)) * 12 +
+                                     as.numeric(gsub(".*\\s", "", Credit_History_Age))) %>%
+  select(-Credit_History_Age)
+
+fill_na <- function(x) {
+  if (all(is.na(x))) {
+    return(x)
+  }
+  
+  x[is.na(x)] <- zoo::na.locf(x, na.rm = FALSE, fromLast = FALSE)[is.na(x)]
+  return(x)
+}
+
+df <- df %>%
+  group_by(Customer_ID) %>%
+  arrange(Customer_ID, Month, .by_group = TRUE) %>%
+  mutate(Credit_History_Age_Months = fill_na(Credit_History_Age_Months)) %>%
+  ungroup() %>%
+  mutate(Credit_History_Age = paste0(floor(Credit_History_Age_Months / 12), " Years and ",
+                                     Credit_History_Age_Months %% 12, " Months")) %>%
+  select(-Credit_History_Age_Months)
+
+df <- df %>%
+  mutate(Credit_History_Age = gsub("NA", "", Credit_History_Age),
+         Credit_History_Age = gsub("Years and ", "", Credit_History_Age),
+         Credit_History_Age = gsub("Months", "", Credit_History_Age),
+         Credit_History_Age = gsub("Years", "", Credit_History_Age),
+         Credit_History_Age = gsub("\\[\\s+\\]", " ", trimws(Credit_History_Age)),
+         Credit_History_Age = as.numeric(sub("\\s.*", "", Credit_History_Age)) +
+                               as.numeric(gsub(".*\\s", "", Credit_History_Age)) / 12) %>%
+  filter(!is.na(Credit_History_Age))
+```
+
+  
+```{r}
+#| code-summary: "Visualization for Credit_History_Age"
+
+hist(df$Credit_History_Age, 
+     main = "Distribution of Credit History Age",
+     xlab = "Credit History Age",
+     ylab = "Frequency",
+     col = "steelblue",
+     border = "white",
+     breaks = 100)
+```
+
+#### 2.3.2.23 Payment_of_Min_Amount
+
+ Payment_of_Min_Amount records whether the customer paid the minimum amount due, with a Character type. Group by Customer ID, and if the value is "NM," then obtain the mode of all values excluding "NM" and replace "NM" with this mode. If not, retain the original value. The type of this column does not change. Finally, the Payment_of_Min_Amount column is converted into an ordered factor, where "No" and "Yes" correspond to numerical labels of 0 and 1. Ultimately, this column's type becomes Factor.
+
+
+```{r}
+#| code-summary: "Data cleaning for Payment_of_Min_Amount"
+
+get_mode <- function(x) {
+  ux <- unique(x[!is.na(x)])
+  if (length(ux) > 0) {
+    ux[which.max(tabulate(match(x, ux)))]
+  } else {
+    NA
+  }
+}
+
+df <- df %>%
+  group_by(Customer_ID) %>%
+  mutate(Payment_of_Min_Amount = ifelse(Payment_of_Min_Amount == "NM",
+                                        get_mode(Payment_of_Min_Amount[Payment_of_Min_Amount != "NM"]),
+                                        Payment_of_Min_Amount)) %>%
+  ungroup() %>%
+  filter(!is.na(Payment_of_Min_Amount))
+
+```
+
+```{r}
+unique(df$Payment_of_Min_Amount)
+```
+
+```{r}
+df$Payment_of_Min_Amount <- factor(df$Payment_of_Min_Amount, levels = c("No", "Yes"), labels = c(0, 1), ordered = TRUE)
+levels(df$Payment_of_Min_Amount)
+```
+
+```{r}
+#| code-summary: "Visualization for Payment_of_Min_Amount"
+
+df %>%
+  count(Payment_of_Min_Amount) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = "", y = prop, fill = Payment_of_Min_Amount)) +
+  geom_bar(stat = "identity",width = 1,  color = "white") +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Payment of Min Amount",
+       x = "Payment of Min Amount",
+       y = "Proportion") +
+  theme_void() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+#### 2.3.2.24 Total_EMI_per_month
+
+ Total_EMI_per_month records the total equated monthly installment per month, with a Numeric type. This column contains no null values. Thus, quartiles and interquartile range were calculated, and outliers beyond these limits were removed based on this data.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "Summarise for Total_EMI_per_month"
+
+summary(df$Total_EMI_per_month)
+```
+
+```{r}
+#| code-summary: "boxplot for Total_EMI_per_month"
+ggplot(df, aes(y = Total_EMI_per_month)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Total EMI per Month", y = "Total EMI per Month") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+#| code-summary: "Data cleaning for Total_EMI_per_month"
+
+Q1.EMI <- quantile(df$Total_EMI_per_month, 0.25)
+Q3.EMI <- quantile(df$Total_EMI_per_month, 0.75)
+IQR.EMI <- IQR(df$Total_EMI_per_month)
+
+lower.EMI <- Q1.EMI - 1.5 * IQR.EMI
+upper.EMI <- Q3.EMI + 1.5 * IQR.EMI
+
+df <- subset(df, Total_EMI_per_month >= lower.EMI & Total_EMI_per_month <= upper.EMI)
+```
+
+```{r}
+#| code-summary: "Visualization for Total_EMI_per_month"
+ggplot(df, aes(x = Total_EMI_per_month)) + 
+  geom_histogram(binwidth = 10, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Total EMI per Month",
+       x = "Total EMI per Month",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+#### 2.3.2.25 Amount_invested_monthly
+ Amount_invested_monthly records the Amount invested by the customer monthly, with a Character type. For the outlier value '__10000__', we first turn it into a null value, and then remove all null values.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception. 
+
+
+```{r}
+#| code-summary: "Summarise Amount_invested_monthly"
+
+df <- df %>%
+  mutate(Amount_invested_monthly = as.numeric(gsub("__10000__", NA, Amount_invested_monthly))) %>%
+  filter(!is.na(Amount_invested_monthly))
+summary(df$Amount_invested_monthly)
+```
+
+```{r}
+#| code-summary: "boxplot for Amount_invested_monthly"
+ggplot(df, aes(y = Amount_invested_monthly)) +
+  geom_boxplot(fill = "skyblue", color = "black") +
+  theme_minimal() +
+  labs(title = "Boxplot of Amount Invested Monthly", y = "Amount Invested Monthly") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+```{r}
+#| code-summary: "Data cleaning for Amount_invested_monthly"
+
+Q1.AIM <- quantile(df$Amount_invested_monthly, 0.25)
+Q3.AIM <- quantile(df$Amount_invested_monthly, 0.75)
+IQR.AIM <- IQR(df$Amount_invested_monthly)
+
+lower.AIM <- Q1.AIM - 1.5 * IQR.AIM
+upper.AIM <- Q3.AIM + 1.5 * IQR.AIM
+
+# drop
+df <- subset(df, Amount_invested_monthly >= lower.AIM & Amount_invested_monthly <= upper.AIM)
+```
+
+```{r}
+#| code-summary: "Visualization for Amount_invested_monthly"
+ggplot(df, aes(x = Amount_invested_monthly)) + 
+  geom_histogram(binwidth = 10, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Amount Invested Monthly",
+       x = "Amount Invested Monthly",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+#### 2.3.2.26 Payment_Behaviour
+
+ Payment_Behaviour records the customer's payment behavior, with a Character type. For ease of use later, each value is replaced with a number. For the anomaly '!@9#%8', null values are removed first, then for each customer ID, a unique value is randomly selected from the group. If a customer ID does not have a normal value, it is directly removed. Ultimately, this column's type becomes Factor.
+
+
+```{r}
+#| code-summary: "Data cleaning for Payment_Behaviour"
+
+df <- df %>%
+  mutate(Payment_Behaviour = case_when(
+    Payment_Behaviour == "Low_spent_Small_value_payments" ~ 0,
+    Payment_Behaviour == "Low_spent_Medium_value_payments" ~ 1, 
+    Payment_Behaviour == "Low_spent_Large_value_payments" ~ 2,
+    Payment_Behaviour == "High_spent_Large_value_payments" ~ 3,
+    Payment_Behaviour == "High_spent_Medium_value_payments" ~ 4,
+    Payment_Behaviour == "High_spent_Small_value_payments" ~ 5,
+    Payment_Behaviour == "!@9#%8" ~ as.numeric(NA),
+    TRUE ~ as.numeric(NA)
+  ))
+
+get_rand_mode <- function(x) {
+  ux <- unique(na.omit(x))
+  if (length(ux) > 0) {
+    return(sample(ux, 1))
+  } else {
+    return(NA)
+  }
+}
+
+payment_behaviour_mode <- df %>%
+  group_by(Customer_ID) %>%
+  summarise(Payment_Behaviour_Mode = get_rand_mode(Payment_Behaviour))
+
+df <- left_join(df, payment_behaviour_mode, by = "Customer_ID")
+df$Payment_Behaviour <- coalesce(df$Payment_Behaviour, df$Payment_Behaviour_Mode)
+
+df <- df %>% filter(!is.na(Payment_Behaviour))
+df <- df %>% 
+  select(-Payment_Behaviour_Mode)
+df$Payment_Behaviour <- as.factor(df$Payment_Behaviour)
+
+head(df$Payment_Behaviour)
+```
+
+```{r}
+#| code-summary: "Visualization for Payment_Behaviour"
+
+ggplot(df, aes(x = Payment_Behaviour, fill = Payment_Behaviour)) +
+  geom_bar() +
+  xlab("Payment Behaviour") +
+  ylab("Count") +
+  ggtitle("Distribution of Payment Behaviour") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+```
+
+#### 2.3.2.27 Monthly_Balance
+
+ Monthly_Balance records the customer's monthly balance, with a Character type. It contains anomalies. Since the data represents different individuals' monthly balances, rows including the anomaly '-333333333333333333333333333' and other null values are deleted.An outlier is then defined using the IQR method: a value below Q1-1.5 * IQR or above Q3 + 1.5 * IQR is considered an exception.Ultimately, this column's type becomes Numeric.
+
+
+```{r}
+#| code-summary: "Data cleaning for Monthly_Balance"
+
+df <- df %>%
+  filter(Monthly_Balance != "__-333333333333333333333333333__") %>%
+  filter(!is.na(Monthly_Balance)) %>%
+  mutate(Monthly_Balance = as.numeric(gsub("[^0-9.-]+", "", Monthly_Balance))) %>%
+  filter(!is.na(Monthly_Balance))
+  
+```
+
+```{r}
+#| code-summary: "boxplot for Monthly_Balance"
+ggplot(df, aes(y = Monthly_Balance)) +
+  geom_boxplot(fill = "grey") +
+  theme_minimal() +
+  labs(title = "Boxplot of Monthly Balance", y = "Monthly Balance") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+```{r}
+#| code-summary: "Data cleaning for Monthly_Balance"
+
+Q1.MB <- quantile(df$Monthly_Balance, 0.25)
+Q3.MB <- quantile(df$Monthly_Balance, 0.75)
+IQR.MB <- IQR(df$Monthly_Balance)
+
+lower.MB <- Q1.MB - 1.5 * IQR.MB
+upper.MB <- Q3.MB + 1.5 * IQR.MB
+
+df <- subset(df, Monthly_Balance >= lower.MB & Monthly_Balance <= upper.MB)
+
+```
+
+
+```{r}
+#| code-summary: "Visualization for Monthly_Balance"
+ggplot(df, aes(x = Monthly_Balance)) + 
+  geom_histogram(binwidth = 10, fill = "grey", color = "white") +
+  labs(title = "Distribution of Monthly Balance",
+       x = "Monthly Balance",
+       y = "Frequency") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+
+#### 2.3.2.28 Credit_Score
+
+ Credit_Score records each customer's final credit score, with a Character type. This column contains no anomalies or null values and will be retained without any preprocessing.The Credit_Score column is converted into an ordered factor, where "Poor, ""Standard," and "Good" map to the values 0, 1, and 2, respectively, representing the quality of the credit score from low to high. Ultimately, this column's type becomes Factor.
+
+```{r}
+#| code-summary: "Visualization for Credit_Score"
+
+has_null_in_credit_score <- any(is.na(df$Credit_Score))
+
+if (has_null_in_credit_score) {
+  print("There are some null values.")
+} else {
+  print("There is not null values.")
+}
+```
+
+```{r}
+# Labeling
+df$Credit_Score <- factor(df$Credit_Score, levels = c("Poor", "Standard", "Good"), labels = c(0, 1, 2), ordered = TRUE)
+levels(df$Credit_Score)
+```
+
+```{r}
+# plot 
+credit_score_counts <- table(df$Credit_Score)
+barplot(credit_score_counts,
+        main = "Frequency of Each Credit Score",
+        xlab = "Credit Score",
+        ylab = "Frequency",
+        col = "grey",
+        border = "white")
+
+```
+
+# 3 Are there features that are highly correlated {.tabset .tabset-fade .tabset-pills}
+
+
+```{r}
+write.csv(df, file = "ccc.csv", row.names = FALSE)
+df6 <- subset(df,select = -c(Month,ID,Customer_ID,SSN,Name))
+```
+
+```{r}
+library(Rtsne)
+library(ggpubr)
+library(dplyr)
+
+set.seed(510195249)
+perplexity <- c(5, 10, 15, 20, 25, 30, 40, 50, 100)
+
+# 选择数值型变量
+numerical_cols <- c("Annual_Income", "Monthly_Inhand_Salary", "Num_Bank_Accounts", "Num_Credit_Card",
+                    "Interest_Rate", "Num_of_Loan", "Delay_from_due_date", "Num_of_Delayed_Payment",
+                    "Changed_Credit_Limit", "Num_Credit_Inquiries", "Outstanding_Debt",
+                    "Credit_Utilization_Ratio", "Total_EMI_per_month", "Amount_invested_monthly",
+                    "Monthly_Balance", "Credit_History_Age")
+
+# 去除数值型变量中的缺失值
+df_filtered <- df6 %>% 
+  filter(across(all_of(numerical_cols), ~ !is.na(.)))
+
+# 数据标准化
+df_numerical_scaled <- scale(df_filtered[, numerical_cols])
+
+rtsne <- lapply(perplexity, function(perp) {
+  y <- Rtsne(df_numerical_scaled, dims = 2, perplexity = perp, max_iter = 1000, pca = TRUE)$Y
+  attr(y, "perplexity") <- perp
+  return(y)
+})
+
+tsne.plots <- lapply(rtsne, function(dat) {
+  perplexity <- attr(dat, "perplexity")
+  dat <- as.data.frame(dat)
+  names(dat) <- c("x", "y")
+  
+  # 添加 Credit_Score 变量
+  dat[["Credit_Score"]] <- df_filtered[["Credit_Score"]]
+  
+  ggplot(dat) +
+    geom_point(aes(x = x, y = y, colour = Credit_Score), size = 0.2) +
+    ggtitle(paste0("Perplexity = ", perplexity)) +
+    theme(legend.position = "bottom")
+})
+
+tsne.plotlist <- ggarrange(plotlist = tsne.plots, common.legend = TRUE, legend = "bottom")
+tsne.plotlist
+
+```
+```{r}
+tsne.plots <- lapply(rtsne, function(dat) {
+  perplexity <- attr(dat, "perplexity")
+  dat <- as.data.frame(dat)
+  names(dat) <- c("x", "y")
+  
+  # 添加 Credit_Score 变量
+  dat[["Credit_Score"]] <- df_filtered[["Credit_Score"]]
+  
+  ggplot(dat) +
+    geom_point(aes(x = x, y = y, colour = Credit_Score), size = 0.2) +
+    ggtitle(paste0("Perplexity = ", perplexity)) +
+    theme(legend.position = "bottom")
+})
+
+tsne.plotlist <- ggarrange(plotlist = tsne.plots, common.legend = TRUE, legend = "bottom")
+tsne.plotlist
+```
+
+
+```{r}
+# 对于每个perplexity值,执行t-SNE并保存结果
+rtsne <- lapply(perplexity, function(perp) {
+    y <- Rtsne(dataNumeric, dims = 2, perplexity = perp)$Y
+    attr(y, "perplexity") <- perp
+    return(y)
+})
+
+# 为每个perplexity值创建一个散点图
+tsne.plots <- lapply(rtsne, function(dat) {
+    perplexity <- attr(dat, "perplexity")
+    dat <- as.data.frame(dat)
+    names(dat) <- c("x", "y")
+    dat[["author"]] <- authors
+    ggplot(dat) + 
+        geom_point(aes(x = x, y = y, colour = author)) +
+        ggtitle(paste0("Perplexity = ", perplexity))
+})
+
+# 将所有散点图排列在一起,并添加一个共同的图例
+tsne.plotlist <- ggarrange(plotlist = tsne.plots, common.legend = TRUE)
+
+# 显示最终的图像
+invisible(tsne.plotlist)
+```
+
+
+## 3.1 Correlation Analysis
+
+<div class = "summary">
+
+ In order to assess the relationships between variables, Pearson correlation coefficient is used in this session, the formula is as follows.\[ r_{xy} = \frac{\sum_{i=1}^{n} (x_i - \bar{x})(y_i - \bar{y})}{\sqrt{\sum_{i=1}^{n} (x_i - \bar{x})^2} \sqrt{\sum_{i=1}^{n} (y_i - \bar{y})^2}} \] where X and Y indicates the two variables in this assessment. The correlation coefficient varies in the range of (-1,1).<br>
+<br>
+ We can use a heatmap as a visualization of correlation analysis. Their trends are ranked by their brightness which means draker means higher correlation rate(RDocumentation, 2019).<br>
+</div>
+
+```{r}
+df3 <- df
+df3 <- subset(df3,select = -c(Month,ID,Customer_ID,SSN,Name))
+df3 <- df3 %>%
+  mutate(across(where(is.factor), ~as.numeric(as.character(.)))) %>%
+  mutate(across(where(is.numeric), ~ifelse(is.na(.), median(., na.rm = TRUE), .))) %>%
+  mutate(across(where(is.numeric), scale))
+df3 <- df3[complete.cases(df3$Credit_History_Age), ]
+```
+
+```{r}
+#correlation analysis
+cor_matrix <- cor(df3)
+#head(cor_matrix, n = 5)
+```
+
+```{r}
+# Heatmap visualization
+pheatmap(cor_matrix,
+         main = "Correlation Heatmap",
+         cluster_rows = TRUE,
+         cluster_cols = TRUE,
+         color = colorRampPalette(c("yellow", "orange", "red"))(100) ,
+         cellwidth = 10, cellheight = 6,
+         fontsize = 6, fontsize_row = 6,
+         legend = TRUE,
+)
+```
+
+## 3.2 Principle Component Analysis {.tabset .tabset-fade .tabset-pills}
+
+### 3.2.1 PCA analysis
+
+<div class = "summary">
+
+ Before we  apply Principle Component Analysis (PCA), we need to eliminate the magnitude between variables. The formula is as follows: \[Z = \frac{X - \bar{X}}{\sigma}\] where sigma indicates the standard error of data. Regroup the data as original order.<br>
+<br>
+ PCA is a dimension reduction method in statistics. The total explained variance of the data, the contribute rate of variance, accumulative contribute rate of variance is calculated after we apply the PCA method (R-bloggers, 2021).<br>
+<br>
+ Between PCs are not related and their variance decrease by their level. In this study we select variables with highest accumulative contribute rate when reach the 85%. Which means variables carried main information of the whole data set is filtered. <br>
+<br>
+</div>
+
+```{r}
+# Call prcomp function
+pca_result <- prcomp(df3, scale. = TRUE)
+#print(pca_result$x[1:5, ])
+```
+
+```{r}
+# Output explained variances and factor loading matrix
+variance_explained <- pca_result$sdev^2 / sum(pca_result$sdev^2)
+#print(variance_explained)
+```
+
+```{r}
+#print pca sesults
+#summary(pca_result)$importance
+```
+
+
+```{r}
+# Define contribute percent of variance
+variance_contrib_percent <- (pca_result$sdev^2 / sum(pca_result$sdev^2)) * 100
+# Define cumulative contribute percent of variance
+cumulative_variance_contrib_percent <- cumsum(variance_contrib_percent)
+
+#print("Variance contribution rates：")
+#variance_contrib_percent
+#print("Cumulative variance contribution rates：")
+#cumulative_variance_contrib_percent
+```
+
+```{r}
+# Calculate the (cumulative) percentage variance contribution
+variance_contrib_percent <- (pca_result$sdev^2 / sum(pca_result$sdev^2)) * 100
+cumulative_variance_contrib_percent <- cumsum(variance_contrib_percent)
+
+# Setting determine to output names till cvcp > 85%
+selected_variables <- names(cumulative_variance_contrib_percent[cumulative_variance_contrib_percent > 85])
+
+#output variable names meet the condition
+#print(data.frame(variance_contrib_percent, variable = names(df3)))
+#print(data.frame(cumulative_variance_contrib_percent, variable = names(df3)))
+
+```
+
+
+### 3.2.2 PCA results
+
+<div class = "summary">
+
+<table> 
+  <tr> 
+    <th>The result of selected variables</th> 
+  </tr> 
+  <tr> 
+    <td>Occupation</td> 
+  </tr>
+  <tr> 
+    <td>Annual_Income</td> 
+  </tr>
+  <tr> 
+    <td>Monthly_Inhand_Salary</td> 
+  </tr>
+  <tr> 
+    <td>Num_Bank_Accounts</td> 
+  </tr>
+  <tr> 
+    <td>Num_Credit_Card</td> 
+  </tr>
+  <tr> 
+    <td>Interest_Rate</td> 
+  </tr>
+  <tr> 
+    <td>Num_of_Loan</td> 
+  </tr>
+  <tr> 
+    <td>Delay_from_due_date</td> 
+  </tr>
+  <tr> 
+    <td>Num_of_Delayed_Payment</td> 
+  </tr>
+  <tr> 
+    <td>Changed_Credit_Limit</td> 
+  </tr>
+  <tr> 
+    <td>Num_Credit_Inquiries</td> 
+  </tr>
+  <tr> 
+    <td>Credit_Mix</td> 
+  </tr>
+  <tr> 
+    <td>Outstanding_Debt</td> 
+  </tr>
+  <tr> 
+    <td>Credit_Utilization_Ratio</td> 
+  </tr>
+  <tr> 
+    <td>Payment_of_Min_Amount</td> 
+  </tr>
+</table>
+</div>
+
+```{r}
+cat("Filter cumulative variance contribute percent when over 85%")
+# Filter cumulative variance contribute percent when over 85%
+df4 <- data.frame(cumulative_variance_contrib_percent, variable = names(df3))
+
+selected_variables <- df4$variable[df4$cumulative_variance_contrib_percent < 86]
+selected_variables
+# Filter columns with index
+df5 <- df[selected_variables]
+df5
+# Write into pca.csv
+write.csv(selected_variables, file = "pca.csv", row.names = FALSE)
+```
+
+
+```{r}
+library(ggplot2)
+
+# Create a data frame with variable names and their cumulative percent contributions
+df_cumulative <- data.frame(
+  variables = names(df3),
+  cumulative_percent = cumulative_variance_contrib_percent
+)
+
+# Calculate the index where the cumulative percent is just under 86%
+max_index_under_86 <- max(which(df_cumulative$cumulative_percent < 86))
+
+# Retrieve the cumulative percent at this index to use for the horizontal line
+selected_percent = df_cumulative$cumulative_percent[max_index_under_86]
+
+# Plotting the graph
+ggplot(df_cumulative, aes(x = seq_along(variables), y = cumulative_percent)) +
+  geom_line() +  # Draw the line plot
+  geom_vline(xintercept = max_index_under_86, color = "red", linetype = "dashed") +  # Add a red dashed vertical line at the selected index
+  geom_hline(yintercept = selected_percent, color = "blue", linetype = "dashed") +  # Add a blue dashed horizontal line at the selected percent
+  labs(title = "Cumulative Variance Contribution Percent by Number of Variables",
+       x = "Number of Variables",
+       y = "Cumulative Variance Contribution Percent") +
+  theme_minimal()
+
+
+
+```
+
+# 4 Evaluation metrics and model that are planned to be used  {.tabset .tabset-fade .tabset-pills}
+
+## 4.1 Metric selection 
+
+<div class = "summary">
+
+ Considering that this task is a multi-class problem, and through visual analysis of the credit scores, the instances labeled as “Standard” occupy a very large proportion compared to the other two categories “Good” and “Poor”. Therefore, there is a certain degree of imbalance in this data set. Moreover, the choice of metrics should not be singular, each metric has its limitations. Hence, combining multiple metrics for decision making will help us understand the model’s performance more comprehensively. Given the data set’s imbalance, just depending on Accuracy could lead to incomplete results. Therefore, we also need other metrics such as the Confusion Matrix, Recall, Precision, F1 score and so on to comprehensively evaluate the model’s performance.
+
+</div>
+
+## 4.2 Metric interpretation
+
+<div class = "summary">
+ Accuracy: It calculates the proportion of correctly predicted samples to the total samples by comparing models’ predicted results with the actual categories, representing the performance of models. It is a very clear performance metric. However, it has certain limitations in unbalanced multiple class problems, as it may optimistically evaluate the predictive ability of less frequent categories.
+
+ Confusion Matrix: It provides specific details on how each category is correctly and incorrectly classified. This metric can help understand the overall performance of the model.
+
+ Recall: It represents the results correctly predicted as positive among all positive samples. However, like Precision, it offers a more detailed performance measure than Accuracy, especially in cases of category imbalance.
+
+ Precision: It represents the proportion of samples that are actually positive among those predicted as positive. However, like Recall, it offers a more detailed performance measure than Accuracy, especially in cases of category imbalance.
+
+ F1 score: It is the harmonic mean of Recall and Precision. In the presence of class imbalance in multiple category problems, single metrics of Recall or Precision cannot comprehensively reflect the model’s performance, but this metric can take both Recall and Precision into account.
+
+ ROC: The ROC curve displays the relationship between the True Positive Rate and the False Positive Rate of a classification model at various threshold settings. (In multiple category problems, each category needs to be considered separately, treating the selected category as the positive class and combining all other categories as the negative class.)
+
+ AUC: It represents the area under the ROC curve, which can measure the performance of models.
+</div>
+
+## 4.3 Model selection
+
+<div class = "summary">
+As for the chosen dataset after cleaning, it is revealed that some of the characteristics can be summarized as:<br>
+<br>
+ 1. relatively large, with approximately 60,000 sets of data;<br>
+ 2. high dimensionality, with 27 features;<br>
+ 3. high correlation, many features are highly correlated with each other;<br>
+ 4. approximately normal, many features after visualization are revealed to show a somewhat normal distribution;<br>
+ 5. a mixture of numerical and categorical features; 6. for many features, a large number of outliers is evident.<br>
+<br>
+Based upon the aforementioned traits, the following classification methods are chosen for analysis in the future:<br>
+<br>
+ 1. Decision Trees(Maimon, O. Z., & Rokach, L,2014): a classic, simple method that is easy to interpret and is able to handle both numerical and categorical data, though some level of overfitting is to be expected.<br>
+ 2. Random Forest(Belgiu, M., & Drăguţ, L,2016): although being computationally expensive, the random forest method is able to curb the aforementioned overfitting problem introduced by a single decision tree and can also handle outliers better.<br>
+ 3. Neural Networks(Silva, T. C., & Zhao, L,2012): since the dataset is of large scale with over 20 features, this method is clearly ideal and more suitable for the sake of high complexity in the pattern of the chosen data.<br>
+ 4. XGBoost(Shehadeh, A et al.,2021): this method is chosen for its efficiency in handling large-scale datasets, the ability to provide feature importance scores for easier interpretation, and relative robustness to outliers.<br>
+</div>
+
+# 5 Timeline
+
+<div class = "summary">
+<table> 
+  <tr> 
+    <th>Time</th> <th>Task</th><th>Member</th>
+  </tr> 
+  <tr> 
+    <td>Week 8</td> 
+    <td>Model training and tuning - Decision Tree</td> 
+    <td>AB</td>
+  </tr> 
+  <tr> 
+    <td> </td> 
+    <td>Model training and tuning - Random Forest</td> 
+    <td>CD</td>
+  </tr> 
+  <tr> 
+    <td> </td> 
+    <td>Model training and tuning - Neural Network</td> 
+    <td>EF</td>
+  </tr> 
+  <tr> 
+    <td>Week 9</td> 
+    <td>Model training and tuning - XGBoost</td> 
+    <td>AB</td>
+  </tr> 
+  <tr> 
+    <td> </td>
+    <td>Model evaluation and comparison - Decision Tree and Random Forest</td> 
+    <td>CD</td>
+  </tr> 
+  <tr> 
+    <td> </td> 
+    <td>Model evaluation and comparison - Neural Network and XGBoost</td>
+    <td>EF</td>
+  </tr>
+  <tr> 
+    <td>Week 10</td> 
+    <td>Prepare the "Overview of the problem", "Dataset description" and "Initial data analysis/visualisation of the data" parts of the Final report</td> 
+    <td>ABC</td>
+  </tr> 
+  <tr> 
+    <td> </td> 
+    <td>Prepare the "Feature engineering", "Classification algorithms used" and "Classification performance evaluation" parts of the Final report</td> 
+    <td>DEF</td>
+  </tr>
+    <tr> 
+    <td>Week 11</td> 
+    <td>Prepare the problem overview, methodology and result analysis part of presentation</td> 
+    <td>ABC</td>
+  </tr> 
+  <tr> 
+    <td> </td> 
+    <td>Prepare the rest part of presentation and "Conclusion" of the final report</td> 
+    <td>DEF</td>
+  </tr> 
+  <tr> 
+    <td>Week 12</td> 
+    <td>Check, perfect and submit the presentation material and final report</td> 
+    <td>ABCDEF</td>
+  </tr> 
+</table>
+</div>
+
+# 6 References
+ Belgiu, M., & Drăguţ, L. (2016). Random forest in remote sensing: A review of applications and future directions. ISPRS journal of photogrammetry and remote sensing, 114, 24-31.
+
+ Maimon, O. Z., & Rokach, L. (2014). Data mining with decision trees: theory and applications (Vol. 81). World scientific.
+
+ Paris, R. (2022). Credit score classification. Kaggle.com. https://www.kaggle.com/datasets/parisrohan/credit-score-classification/data?select=train.csv
+
+ R-bloggers. (2021, May 7). Principal component analysis (PCA) in R | R-bloggers. R-Bloggers. https://www.r-bloggers.com/2021/05/principal-component-analysis-pca-in-r/
+
+ RDocumentation. (2019). pheatmap function. Rdocumentation.org. https://www.rdocumentation.org/packages/pheatmap/versions/1.0.12/topics/pheatmap
+
+ Shehadeh, A., Alshboul, O., Al Mamlook, R. E., & Hamedat, O. (2021). Machine learning models for predicting the residual value of heavy construction equipment: An evaluation of modified decision tree, LightGBM, and XGBoost regression. Automation in Construction, 129, 103827.
+
+ Silva, T. C., & Zhao, L. (2012). Network-based high level data classification. IEEE Transactions on Neural Networks and Learning Systems, 23(6), 954-970.
